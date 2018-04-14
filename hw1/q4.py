@@ -1,5 +1,6 @@
 import pickle, gzip, urllib.request, json
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 import logging
 import time
@@ -34,25 +35,112 @@ def get_data():
 
 
 @timed
-def train_analytic_linear_regressor(X, y):
-    lmbdas = [10e-5, 10e-4, 10e-3, 10e-2, 10e-1, 1, 10, 100]
+def train_analytic_ridge_regressor(X, y, lmbda):
     m = X.shape[0]
     I = np.eye(X.shape[1])
-    # TODO: Copied from Q3 solution, what about the 1*b?
-    return lmbdas, [np.linalg.inv(X.transpose().dot(X) * (1 / m) + I * 2 * lmbda).dot(X.transpose().dot(y)) * (1 / m)
-                    for lmbda in lmbdas]
+
+    w = np.linalg.inv(X.transpose().dot(X) * (1.0 / m) + I * 2.0 * lmbda).dot(1.0 / m * X.transpose().dot(y))
+    b = np.mean(y)
+    # This value we are trying to minimize
+    loss = (np.linalg.norm(np.dot(X, w) + b - y) ** 2) / 2.0 / m + lmbda * np.linalg.norm(w)
+
+    logging.debug('Analytical for lambda={} loss value is {}'.format(lmbda, loss))
+
+    # TODO: can we make class of this stuff ?!
+    return w, b
 
 
-def train_gd_linear_regressor(X, y):
-    pass
+def train_gd_rigde_regressor(X, y, regularization_coefficient,
+                             learning_rate, number_of_steps,
+                             initial_w=None, initial_b=0.0):
+    m, n = X.shape
+
+    if initial_w is None:
+        initial_w = np.zeros((n,))
+
+    w = initial_w
+    b = initial_b
+
+    x_transpose_dot_x = X.transpose().dot(X)
+    x_transpose_dot_y = X.transpose().dot(y)
+
+    for step in range(number_of_steps):
+        # TODO: should I really calculate b in this way?
+        dl_by_db = b - 1.0 / m * np.sum(y)
+        b -= learning_rate * dl_by_db
+
+        dl_by_dw = 1.0 / m * (x_transpose_dot_x.dot(w) - x_transpose_dot_y) + 2.0 * regularization_coefficient * w
+        w -= learning_rate * dl_by_dw
+
+    # This value we are trying to minimize
+    loss = (np.linalg.norm(np.dot(X, w) + b - y) ** 2) / 2.0 / m + regularization_coefficient * np.linalg.norm(w)
+
+    logging.debug('Gradient descent for lambda={} loss value is {}'.format(regularization_coefficient, loss))
+
+    # TODO: can we make class of this stuff ?!
+    return w, b
 
 
 @timed
 def zero_one_loss(X, y, w, b):
     m = X.shape[0]
-    Ib = np.ones(X.shape[0]) * b
+    Ib = np.ones(m) * b
     x_classified = np.sign(X.dot(w) + Ib)
-    return np.sum(y - x_classified) / m
+
+    return np.count_nonzero(y != x_classified) / m
+
+
+def squared_loss(X, y, w, b):
+    y_predicted = X.dot(w) + b
+    error = y_predicted - y
+
+    return np.linalg.norm(error) ** 2 / y.size
+
+
+def calculate_learning_losses(train_x, train_y,
+                              regularization_coefficient,
+                              learning_rate, number_of_steps,
+                              test_xs, test_ys,
+                              loss_functions):
+    n = train_x.shape[1]
+    w = np.zeros((n,))
+    b = 0.0
+    learning_losses = [
+        [np.zeros((number_of_steps,))
+            for loss_index in range(len(loss_functions))]
+        for test_index in range(len(test_xs))
+    ]
+    steps = range(number_of_steps)
+
+    for current_step in steps:
+        w, b = train_gd_rigde_regressor(train_x, train_y, regularization_coefficient, learning_rate, 1,
+                                        initial_w=w, initial_b=b)
+
+        for test_index, (current_test_x, current_test_y) in enumerate(zip(test_xs, test_ys)):
+            for loss_index, loss in enumerate(loss_functions):
+                learning_losses[test_index][loss_index][current_step] = loss(current_test_x, current_test_y, w, b)
+
+    return learning_losses
+
+
+def plot_learning_losses(train_x, train_y, test_x, test_y, regularization_coefficient, learning_rate, number_of_steps):
+    # TODO: they really mean test?! not validation?
+    learning_losses = calculate_learning_losses(train_x, train_y,
+                                                regularization_coefficient,
+                                                learning_rate, number_of_steps,
+                                                (train_x, test_x), (train_y, test_y),
+                                                (zero_one_loss, squared_loss))
+
+    plt.rc('text', usetex=True)
+    # TODO: do we want to split it to two subplots?
+    train_zero_one, = plt.plot(learning_losses[0][0], label='train $L_{0-1}$')
+    train_squared, = plt.plot(learning_losses[0][1], label='train $L_{squared}$')
+    test_zero_one, = plt.plot(learning_losses[1][0], label='test $L_{0-1}$')
+    test_squared, = plt.plot(learning_losses[1][1], label='test $L_{squared}$')
+    plt.legend(handles=[train_zero_one, train_squared, test_zero_one, test_squared])
+    plt.ylabel('Loss')
+    plt.xlabel('Step')
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -71,7 +159,79 @@ if __name__ == '__main__':
     train_y, valid_y, test_y = even_odd(train_y), even_odd(valid_y), even_odd(test_y)
 
     # Train the analytical model with 8 lambdas, and get 8 models
-    lmbdas, analytical_models = train_analytic_linear_regressor(train_x, train_y)
-    zero_one_analytical_losses = \
-        [zero_one_loss(train_x, train_y, analytical_models[i], 0) for i in range(len(analytical_models))]
-    [print("{0} -> {1}".format(lmbdas[i], zero_one_analytical_losses[i])) for i in range(len(analytical_models))]
+    lambdas = np.logspace(-5, 2, num=8)
+
+    analytical_models = list(map(
+        lambda current_lambda: train_analytic_ridge_regressor(train_x, train_y, current_lambda),
+        lambdas
+    ))
+    zero_one_analytical_losses_on_training_set = \
+        [zero_one_loss(train_x, train_y, *analytical_models[i]) for i in range(len(analytical_models))]
+    zero_one_analytical_losses_on_validation_set = \
+        [zero_one_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
+    squared_analytical_losses_on_training_set = \
+        [squared_loss(train_x, train_y, *analytical_models[i]) for i in range(len(analytical_models))]
+    squared_analytical_losses_on_validation_set = \
+        [squared_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
+
+    print('analytical:')
+
+    for i in range(len(analytical_models)):
+        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
+            lambdas[i],
+            zero_one_analytical_losses_on_training_set[i],
+            squared_analytical_losses_on_training_set[i],
+            zero_one_analytical_losses_on_validation_set[i],
+            squared_analytical_losses_on_validation_set[i],
+        ))
+
+    # Train the gradient descent model with 8 lambdas, and get 8 models
+    learning_rate = 0.001
+    number_of_steps = 100
+
+    gradient_descent_models = list(map(
+        lambda current_lambda: train_gd_rigde_regressor(train_x, train_y, current_lambda, learning_rate, number_of_steps),
+        lambdas
+    ))
+    zero_one_gd_losses_on_training_set = \
+        [zero_one_loss(train_x, train_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+    zero_one_gd_losses_on_validation_set = \
+        [zero_one_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+    squared_gd_losses_on_training_set = \
+        [squared_loss(train_x, train_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+    squared_gd_losses_on_validation_set = \
+        [squared_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+
+    print('gradient descend:')
+
+    for i in range(len(gradient_descent_models)):
+        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
+            lambdas[i],
+            zero_one_gd_losses_on_training_set[i],
+            squared_gd_losses_on_training_set[i],
+            zero_one_gd_losses_on_validation_set[i],
+            squared_gd_losses_on_validation_set[i],
+        ))
+
+    # Test best analytical model
+    best_analytical_model = analytical_models[np.argmin(zero_one_analytical_losses_on_validation_set)]
+    best_gd_model_index = np.argmin(zero_one_gd_losses_on_validation_set)
+    best_gd_model, best_gd_lambda = gradient_descent_models[best_gd_model_index], lambdas[best_gd_model_index]
+
+    test_analytical_zero_one_loss = zero_one_loss(test_x, test_y, *best_analytical_model)
+    test_analytical_squared_loss = squared_loss(test_x, test_y, *best_analytical_model)
+
+    print('analytical: test: 0-1 {0}, squared: {1}'.format(
+        test_analytical_zero_one_loss,
+        test_analytical_squared_loss
+    ))
+
+    test_gd_zero_one_loss = zero_one_loss(test_x, test_y, *best_gd_model)
+    test_gd_squared_loss = squared_loss(test_x, test_y, *best_gd_model)
+
+    print('gradient descent: test: 0-1 {0}, squared: {1}'.format(
+        test_gd_zero_one_loss,
+        test_gd_squared_loss
+    ))
+
+    plot_learning_losses(train_x, train_y, test_x, test_y, best_gd_lambda, learning_rate, number_of_steps)
