@@ -34,7 +34,6 @@ def get_data():
         return train_set, valid_set, test_set
 
 
-@timed
 def train_analytic_ridge_regressor(X, y, lmbda):
     m = X.shape[0]
     I = np.eye(X.shape[1])
@@ -46,7 +45,6 @@ def train_analytic_ridge_regressor(X, y, lmbda):
 
     logging.debug('Analytical for lambda={} loss value is {}'.format(lmbda, loss))
 
-    # TODO: can we make class of this stuff ?!
     return w, b
 
 
@@ -66,7 +64,7 @@ def train_gd_rigde_regressor(X, y, regularization_coefficient,
 
     for step in range(number_of_steps):
         # TODO: should I really calculate b in this way?
-        dl_by_db = b - 1.0 / m * np.sum(y)
+        dl_by_db = b - (1.0 / m) * np.sum(y)
         b -= learning_rate * dl_by_db
 
         dl_by_dw = 1.0 / m * (x_transpose_dot_x.dot(w) - x_transpose_dot_y) + 2.0 * regularization_coefficient * w
@@ -77,17 +75,13 @@ def train_gd_rigde_regressor(X, y, regularization_coefficient,
 
     logging.debug('Gradient descent for lambda={} loss value is {}'.format(regularization_coefficient, loss))
 
-    # TODO: can we make class of this stuff ?!
     return w, b
 
 
-@timed
 def zero_one_loss(X, y, w, b):
-    m = X.shape[0]
-    Ib = np.ones(m) * b
-    x_classified = np.sign(X.dot(w) + Ib)
+    y_predicted = np.sign(X.dot(w) + b)
 
-    return np.count_nonzero(y != x_classified) / m
+    return np.count_nonzero(y != y_predicted) / y.size
 
 
 def squared_loss(X, y, w, b):
@@ -107,7 +101,7 @@ def calculate_learning_losses(train_x, train_y,
     b = 0.0
     learning_losses = [
         [np.zeros((number_of_steps,))
-            for loss_index in range(len(loss_functions))]
+         for loss_index in range(len(loss_functions))]
         for test_index in range(len(test_xs))
     ]
     steps = range(number_of_steps)
@@ -124,14 +118,15 @@ def calculate_learning_losses(train_x, train_y,
 
 
 def plot_learning_losses(train_x, train_y, test_x, test_y, regularization_coefficient, learning_rate, number_of_steps):
-    # TODO: they really mean test?! not validation?
+    # they really mean test?! not validation? -> I think so, since we used the validation to find the best coef,
+    # and the performance of the model is actually evaluated with respect to the test-set
     learning_losses = calculate_learning_losses(train_x, train_y,
                                                 regularization_coefficient,
                                                 learning_rate, number_of_steps,
                                                 (train_x, test_x), (train_y, test_y),
                                                 (zero_one_loss, squared_loss))
 
-    plt.rc('text', usetex=True)
+    plt.rc('text', usetex=False)
     # TODO: do we want to split it to two subplots?
     train_zero_one, = plt.plot(learning_losses[0][0], label='train $L_{0-1}$')
     train_squared, = plt.plot(learning_losses[0][1], label='train $L_{squared}$')
@@ -190,7 +185,8 @@ if __name__ == '__main__':
     number_of_steps = 100
 
     gradient_descent_models = list(map(
-        lambda current_lambda: train_gd_rigde_regressor(train_x, train_y, current_lambda, learning_rate, number_of_steps),
+        lambda current_lambda: train_gd_rigde_regressor(train_x, train_y, current_lambda, learning_rate,
+                                                        number_of_steps),
         lambdas
     ))
     zero_one_gd_losses_on_training_set = \
@@ -217,6 +213,10 @@ if __name__ == '__main__':
     best_analytical_model = analytical_models[np.argmin(zero_one_analytical_losses_on_validation_set)]
     best_gd_model_index = np.argmin(zero_one_gd_losses_on_validation_set)
     best_gd_model, best_gd_lambda = gradient_descent_models[best_gd_model_index], lambdas[best_gd_model_index]
+
+    logger.debug("The distance between weights of 2 models: {}, the distance between biases of 2 models: {}"
+                 .format(np.linalg.norm(best_analytical_model[0] - best_gd_model[0]),
+                         np.linalg.norm(best_analytical_model[1] - best_gd_model[1])))
 
     test_analytical_zero_one_loss = zero_one_loss(test_x, test_y, *best_analytical_model)
     test_analytical_squared_loss = squared_loss(test_x, test_y, *best_analytical_model)
