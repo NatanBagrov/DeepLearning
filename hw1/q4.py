@@ -127,7 +127,6 @@ def plot_learning_losses(train_x, train_y, test_x, test_y, regularization_coeffi
                                                 (zero_one_loss, squared_loss))
 
     plt.rc('text', usetex=False)
-    # TODO: do we want to split it to two subplots?
     train_zero_one, = plt.plot(learning_losses[0][0], label='train $L_{0-1}$')
     train_squared, = plt.plot(learning_losses[0][1], label='train $L_{squared}$')
     test_zero_one, = plt.plot(learning_losses[1][0], label='test $L_{0-1}$')
@@ -136,6 +135,67 @@ def plot_learning_losses(train_x, train_y, test_x, test_y, regularization_coeffi
     plt.ylabel('Loss')
     plt.xlabel('Step')
     plt.show()
+
+
+def plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_models,gradient_descent_models):
+    zero_one_analytical_losses_on_training_set = \
+        [zero_one_loss(train_x, train_y, *analytical_models[i]) for i in range(len(analytical_models))]
+    zero_one_analytical_losses_on_validation_set = \
+        [zero_one_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
+    squared_analytical_losses_on_training_set = \
+        [squared_loss(train_x, train_y, *analytical_models[i]) for i in range(len(analytical_models))]
+    squared_analytical_losses_on_validation_set = \
+        [squared_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
+
+    print('analytical:')
+
+    for i in range(len(analytical_models)):
+        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
+            lambdas[i],
+            zero_one_analytical_losses_on_training_set[i],
+            squared_analytical_losses_on_training_set[i],
+            zero_one_analytical_losses_on_validation_set[i],
+            squared_analytical_losses_on_validation_set[i],
+        ))
+
+    zero_one_gd_losses_on_training_set = \
+        [zero_one_loss(train_x, train_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+    zero_one_gd_losses_on_validation_set = \
+        [zero_one_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+    squared_gd_losses_on_training_set = \
+        [squared_loss(train_x, train_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+    squared_gd_losses_on_validation_set = \
+        [squared_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
+
+    print('gradient descend:')
+
+    for i in range(len(gradient_descent_models)):
+        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
+            lambdas[i],
+            zero_one_gd_losses_on_training_set[i],
+            squared_gd_losses_on_training_set[i],
+            zero_one_gd_losses_on_validation_set[i],
+            squared_gd_losses_on_validation_set[i],
+        ))
+
+    f, shared = plt.subplots(2, sharex=True)
+    plt.rc('text')
+    shared[0].semilogx(lambdas, zero_one_analytical_losses_on_training_set, 'r', label="a.train $L_{0-1}$")
+    shared[0].semilogx(lambdas, zero_one_analytical_losses_on_validation_set, 'g', label="a.validation $L_{0-1}$")
+    shared[0].semilogx(lambdas, squared_analytical_losses_on_training_set, 'b', label="a.train $L_{squared}$")
+    shared[0].semilogx(lambdas, squared_analytical_losses_on_validation_set, 'y', label="a.validation $L_{squared}$")
+
+    shared[1].semilogx(lambdas, zero_one_gd_losses_on_training_set, 'r', label="gd.train $L_{0-1}$")
+    shared[1].semilogx(lambdas, zero_one_gd_losses_on_validation_set, 'g', label="gd.validation $L_{0-1}$")
+    shared[1].semilogx(lambdas, squared_gd_losses_on_training_set, 'b', label="gd.train $L_{squared}$")
+    shared[1].semilogx(lambdas, squared_analytical_losses_on_validation_set, 'y', label="gd.validation $L_{squared}$")
+
+    shared[0].legend()
+    shared[1].legend()
+    plt.xlabel("Lambdas")
+    plt.ylabel("Loss")
+    plt.show()
+    pass
 
 
 if __name__ == '__main__':
@@ -160,25 +220,6 @@ if __name__ == '__main__':
         lambda current_lambda: train_analytic_ridge_regressor(train_x, train_y, current_lambda),
         lambdas
     ))
-    zero_one_analytical_losses_on_training_set = \
-        [zero_one_loss(train_x, train_y, *analytical_models[i]) for i in range(len(analytical_models))]
-    zero_one_analytical_losses_on_validation_set = \
-        [zero_one_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
-    squared_analytical_losses_on_training_set = \
-        [squared_loss(train_x, train_y, *analytical_models[i]) for i in range(len(analytical_models))]
-    squared_analytical_losses_on_validation_set = \
-        [squared_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
-
-    print('analytical:')
-
-    for i in range(len(analytical_models)):
-        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
-            lambdas[i],
-            zero_one_analytical_losses_on_training_set[i],
-            squared_analytical_losses_on_training_set[i],
-            zero_one_analytical_losses_on_validation_set[i],
-            squared_analytical_losses_on_validation_set[i],
-        ))
 
     # Train the gradient descent model with 8 lambdas, and get 8 models
     learning_rate = 0.001
@@ -189,28 +230,16 @@ if __name__ == '__main__':
                                                         number_of_steps),
         lambdas
     ))
-    zero_one_gd_losses_on_training_set = \
-        [zero_one_loss(train_x, train_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
-    zero_one_gd_losses_on_validation_set = \
-        [zero_one_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
-    squared_gd_losses_on_training_set = \
-        [squared_loss(train_x, train_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
-    squared_gd_losses_on_validation_set = \
-        [squared_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
 
-    print('gradient descend:')
-
-    for i in range(len(gradient_descent_models)):
-        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
-            lambdas[i],
-            zero_one_gd_losses_on_training_set[i],
-            squared_gd_losses_on_training_set[i],
-            zero_one_gd_losses_on_validation_set[i],
-            squared_gd_losses_on_validation_set[i],
-        ))
+    plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_models, gradient_descent_models)
 
     # Test best analytical model
+    zero_one_analytical_losses_on_validation_set = \
+        [zero_one_loss(valid_x, valid_y, *analytical_models[i]) for i in range(len(analytical_models))]
     best_analytical_model = analytical_models[np.argmin(zero_one_analytical_losses_on_validation_set)]
+
+    zero_one_gd_losses_on_validation_set = \
+        [zero_one_loss(valid_x, valid_y, *gradient_descent_models[i]) for i in range(len(gradient_descent_models))]
     best_gd_model_index = np.argmin(zero_one_gd_losses_on_validation_set)
     best_gd_model, best_gd_lambda = gradient_descent_models[best_gd_model_index], lambdas[best_gd_model_index]
 
