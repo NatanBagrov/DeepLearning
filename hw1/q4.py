@@ -195,7 +195,6 @@ def plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_mod
     plt.xlabel("Lambdas")
     plt.ylabel("Loss")
     plt.show()
-    pass
 
 
 if __name__ == '__main__':
