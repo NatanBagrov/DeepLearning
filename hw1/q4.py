@@ -150,7 +150,7 @@ def plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_mod
     print('analytical:')
 
     for i in range(len(analytical_models)):
-        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
+        print("lambda {0:e} -> train: 0-1: {1:.3f}, squared: {2:.3f}; validation: 0-1: {3:.3f}, squared: {4:.3f}".format(
             lambdas[i],
             zero_one_analytical_losses_on_training_set[i],
             squared_analytical_losses_on_training_set[i],
@@ -170,7 +170,7 @@ def plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_mod
     print('gradient descend:')
 
     for i in range(len(gradient_descent_models)):
-        print("lambda {0:e} -> train: 0-1: {1}, squared: {2}; validation: 0-1: {3}, squared: {4}".format(
+        print("lambda {0:e} -> train: 0-1: {1:.3f}, squared: {2:.3f}; validation: 0-1: {3:.3f}, squared: {4:.3f}".format(
             lambdas[i],
             zero_one_gd_losses_on_training_set[i],
             squared_gd_losses_on_training_set[i],
@@ -188,7 +188,7 @@ def plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_mod
     shared[1].semilogx(lambdas, zero_one_gd_losses_on_training_set, 'r', label="gd.train $L_{0-1}$")
     shared[1].semilogx(lambdas, zero_one_gd_losses_on_validation_set, 'g', label="gd.validation $L_{0-1}$")
     shared[1].semilogx(lambdas, squared_gd_losses_on_training_set, 'b', label="gd.train $L_{squared}$")
-    shared[1].semilogx(lambdas, squared_analytical_losses_on_validation_set, 'y', label="gd.validation $L_{squared}$")
+    shared[1].semilogx(lambdas, squared_gd_losses_on_validation_set, 'y', label="gd.validation $L_{squared}$")
 
     shared[0].legend()
     shared[1].legend()
