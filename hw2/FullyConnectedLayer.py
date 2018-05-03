@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 
+# TODO: are you sure you want to be rooted so high?
 from hw2.utils.ActivationFunctions import ActivationFunction
 from hw2.utils.RegularizationMethods import RegularizationMethod
 
