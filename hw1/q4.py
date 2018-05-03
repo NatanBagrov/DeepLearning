@@ -180,15 +180,15 @@ def plot_train_validation_losses_with_respect_to_lambdas(lambdas, analytical_mod
 
     f, shared = plt.subplots(2, sharex=True)
     plt.rc('text')
-    shared[0].semilogx(lambdas, zero_one_analytical_losses_on_training_set, 'r', label="a.train $L_{0-1}$")
-    shared[0].semilogx(lambdas, zero_one_analytical_losses_on_validation_set, 'g', label="a.validation $L_{0-1}$")
-    shared[0].semilogx(lambdas, squared_analytical_losses_on_training_set, 'b', label="a.train $L_{squared}$")
-    shared[0].semilogx(lambdas, squared_analytical_losses_on_validation_set, 'y', label="a.validation $L_{squared}$")
+    shared[0].semilogx(lambdas, zero_one_analytical_losses_on_training_set, 'ro', label="a.train $L_{0-1}$")
+    shared[0].semilogx(lambdas, zero_one_analytical_losses_on_validation_set, 'go', label="a.validation $L_{0-1}$")
+    shared[0].semilogx(lambdas, squared_analytical_losses_on_training_set, 'bo', label="a.train $L_{squared}$")
+    shared[0].semilogx(lambdas, squared_analytical_losses_on_validation_set, 'yo', label="a.validation $L_{squared}$")
 
-    shared[1].semilogx(lambdas, zero_one_gd_losses_on_training_set, 'r', label="gd.train $L_{0-1}$")
-    shared[1].semilogx(lambdas, zero_one_gd_losses_on_validation_set, 'g', label="gd.validation $L_{0-1}$")
-    shared[1].semilogx(lambdas, squared_gd_losses_on_training_set, 'b', label="gd.train $L_{squared}$")
-    shared[1].semilogx(lambdas, squared_gd_losses_on_validation_set, 'y', label="gd.validation $L_{squared}$")
+    shared[1].semilogx(lambdas, zero_one_gd_losses_on_training_set, 'ro', label="gd.train $L_{0-1}$")
+    shared[1].semilogx(lambdas, zero_one_gd_losses_on_validation_set, 'go', label="gd.validation $L_{0-1}$")
+    shared[1].semilogx(lambdas, squared_gd_losses_on_training_set, 'bo', label="gd.train $L_{squared}$")
+    shared[1].semilogx(lambdas, squared_gd_losses_on_validation_set, 'yo', label="gd.validation $L_{squared}$")
 
     shared[0].legend()
     shared[1].legend()
