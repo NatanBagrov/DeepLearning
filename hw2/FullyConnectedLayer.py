@@ -4,23 +4,35 @@ import numpy as np
 
 from utils.ActivationFunctions import ActivationFunction
 from utils.RegularizationMethods import RegularizationMethod
+from graph.Operation import Add, Multiply
+from graph.GraphNode import GraphNode
+from graph.Variable import Variable
 
 
-class FullyConnectedLayer:
-    def __init__(self, inputs_num: int, outputs_num: int, activation_function: ActivationFunction,
-                 regularization_method: RegularizationMethod, weight_decay: float):
+class FullyConnectedLayer(GraphNode):
+    def __init__(self, inputs_num: int, outputs_num: int,
+                 activation_function: ActivationFunction.__class__,
+                 input_variable=None):
         self._af = activation_function
-        self._lambda = weight_decay
-        self._rm = regularization_method
-        self._w = \
-            np.random.uniform(-1 / math.sqrt(inputs_num), 1 / math.sqrt(inputs_num), (inputs_num, outputs_num))
-        self._b = np.zeros(outputs_num)
-        self._output = np.zeros(outputs_num)
+        self._w = Variable(
+            np.random.uniform(-1 / math.sqrt(inputs_num), 1 / math.sqrt(inputs_num), (inputs_num, outputs_num)))
+        self._b = Variable(np.zeros(outputs_num))
+        self._input = input_variable
+        # TODO: add regularization once its API is clear
+        self._output = self._af(Add(Multiply(self._w, self._input), self._b))
 
-    def feed_forward(self, inputs):
-        self._output = self._af.forward(np.dot(inputs.T, self._w) + self._b)
-        return self._output
+    def forward(self):
+        return self._output.forward()
 
-    def feed_back(self, output_from_prev, grads_from_next, step_size):
-        self._b -= step_size * grads_from_next
-        # self._w += TODO: continue here...
+    def backward(self, grads=None):
+        self._output.backward()
+
+    def reset(self):
+        self._output.reset()
+
+    def update_grad(self, learning_rate):
+        self._w.update_grad(learning_rate)
+        self._b.update_grad(learning_rate)
+
+    def get_weight(self):
+        return self._w

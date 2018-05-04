@@ -46,6 +46,12 @@ class L1(RegularizationMethod):
         self._node.backward(np.sign(self._gradient))
 
 
+regularization_method_name_to_class = {
+    'l1': L1,
+    'l2': L2,
+}
+
+
 def test_l1():
     x = np.random.rand(10) - 0.5
     v = Variable(x)

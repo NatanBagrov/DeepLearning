@@ -72,6 +72,14 @@ class Identity(ActivationFunction):
         self._node.backward(self._gradient)
 
 
+activation_function_name_to_class = {
+    'relu': ReLU,
+    'sigmoid': Sigmoid,
+    'sot-max': Softmax,  # TODO: is it typo in document?
+    'none': Identity,
+}
+
+
 def test_sigmoid():
     x = np.array([1, 1.1, 1.2, 5.5])
     v = Variable(x)
