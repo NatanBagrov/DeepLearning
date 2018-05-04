@@ -2,9 +2,8 @@ import math
 
 import numpy as np
 
-# TODO: are you sure you want to be rooted so high?
-from hw2.utils.ActivationFunctions import ActivationFunction
-from hw2.utils.RegularizationMethods import RegularizationMethod
+from utils.ActivationFunctions import ActivationFunction
+from utils.RegularizationMethods import RegularizationMethod
 
 
 class FullyConnectedLayer:
@@ -19,9 +18,9 @@ class FullyConnectedLayer:
         self._output = np.zeros(outputs_num)
 
     def feed_forward(self, inputs):
-        self._output = self._af.forward(np.dot(inputs.T, self._w))
+        self._output = self._af.forward(np.dot(inputs.T, self._w) + self._b)
         return self._output
 
     def feed_back(self, output_from_prev, grads_from_next, step_size):
-        self._b += step_size * grads_from_next
+        self._b -= step_size * grads_from_next
         # self._w += TODO: continue here...

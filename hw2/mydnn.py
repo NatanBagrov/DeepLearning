@@ -1,6 +1,6 @@
 import numpy as np
 from timeit import timeit
-from hw2.utils.LossFunctions import CrossEntropy
+from utils.LossFunctions import CrossEntropy
 
 
 class mydnn():
