@@ -1,15 +1,21 @@
 import numpy as np
 from timeit import timeit
 from utils.LossFunctions import CrossEntropy
+from FullyConnectedLayer import FullyConnectedLayer
+from graph.Variable import Variable
 
 
 class mydnn():
     def __init__(self, architecture, loss, weight_decay=0):
         self.prepare_dictionaries()  # TODO: this should create the string->func dict of
                                     # activation/regularization/loss from the utils
-        self._architecture = architecture
-        self._loss = loss  #  TODO: convert to callable
-        self._weight_decay = weight_decay
+
+        self._x_variable = Variable(None) # TODO: call it placeholder
+        self._y_variable = Variable(None)
+        self._architecture, self._prediction_variable = \
+            mydnn._build_architecture(architecture, weight_decay, self._x_variable)
+        self._loss = loss_name_to_class[loss]
+        self._loss_variable = self._loss(self._prediction_variable, self._y_variable)
 
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, x_val=None, y_val=None):
         number_of_samples = x_train.shape[0]
@@ -64,6 +70,23 @@ class mydnn():
     def _is_classification(self):
         return isinstance(self._loss, CrossEntropy)
 
+    @staticmethod
+    def _build_architecture(architecture, weight_decay, current_input):
+        architecture_built = list()
+
+        for layer_dictionary in architecture:
+            activation_function = activation_function_name_to_class[layer_dictionary["nonlinear"]]
+            regularization_method = regularization_method_to_class[layer_dictionary["regularization"]]
+            layer = FullyConnectedLayer(layer_dictionary["input"], layer_dictionary["output"],
+                                        activation_function,
+                                        regularization_method, weight_decay,
+                                        current_input)
+
+            architecture_built.append(layer)
+            current_input = layer
+
+        return architecture_built, current_input
+
     def _do_epoch(self, x_train, y_train, batch_size, learning_rate):
         number_of_samples = x_train.shape[0]
 
@@ -76,5 +99,11 @@ class mydnn():
             self._do_iteration(x_batch, y_batch, learning_rate)
 
     def _do_iteration(self, x_batch, y_batch, learning_rate):
-        #TODO
-        pass
+        self._x_variable.set_value(x_batch)
+        self._y_variable.set_value(y_batch)
+
+        self._architecture[0].forward()
+
+        for current_layer in self._architecture:
+            current_layer.update_grad(learning_rate)
+
