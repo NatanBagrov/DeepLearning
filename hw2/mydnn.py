@@ -5,7 +5,7 @@ from utils.RegularizationMethods import regularization_method_name_to_class
 from utils.ActivationFunctions import activation_function_name_to_class
 from FullyConnectedLayer import FullyConnectedLayer
 from graph.Variable import Variable
-from graph.Operation import Add
+from graph.Operation import Add, Multiply
 
 
 class mydnn():
@@ -21,7 +21,8 @@ class mydnn():
                 weight_decay,
                 self._x_variable
             )
-        self._loss_variable = Add(self._loss(self._prediction_variable, self._y_variable), regularization_cost)
+        loss_class = loss_name_to_class[loss]
+        self._loss_variable = Add(loss_class(self._prediction_variable, self._y_variable), regularization_cost)
 
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, x_val=None, y_val=None):
         number_of_samples = x_train.shape[0]
@@ -84,7 +85,7 @@ class mydnn():
         return_list = [loss, ]
 
         if self._is_classification():
-            accuracy = 0.0 # TODO: 
+            accuracy = 0.0 # TODO:
             return_list.append(accuracy)
 
         return return_list
@@ -96,6 +97,7 @@ class mydnn():
     def _build_architecture_get_prediction_and_regularization_cost(architecture, weight_decay, current_input):
         architecture_built = list()
         regularization_cost = Variable(0)
+        weight_decay_variable = Variable(weight_decay)  # TODO: constant
 
         for layer_dictionary in architecture:
             activation_function = activation_function_name_to_class[layer_dictionary["nonlinear"]]
@@ -103,7 +105,8 @@ class mydnn():
             layer = FullyConnectedLayer(layer_dictionary["input"], layer_dictionary["output"],
                                         activation_function,
                                         current_input)
-            regularization_cost = Add(regularization_cost, weight_decay * regularization_method(layer.get_weight()))
+            regularization_cost = Add(regularization_cost,
+                                      Multiply(weight_decay_variable, regularization_method(layer.get_weight())))
 
             architecture_built.append(layer)
             current_input = layer
