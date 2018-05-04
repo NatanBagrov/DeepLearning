@@ -3,15 +3,14 @@ from abc import abstractmethod
 import numpy as np
 
 from graph.GraphNode import GraphNode
-from graph.Operation import Operation
+from graph.Operation import Operation, Add, Multiply, SumOverRows, RowCount, Divide
+from graph.Variable import Variable
 
 
 class LossFunction(Operation):
 
     def __init__(self, n1: GraphNode, n2: GraphNode):
         super().__init__()
-        self._node1 = n1
-        self._node2 = n2
 
     @abstractmethod
     def forward(self):
@@ -21,32 +20,32 @@ class LossFunction(Operation):
     def _inner_backward(self, grad=None):
         pass
 
+    @abstractmethod
     def _inner_reset(self):
-        self._node1.reset()
-        self._node2.reset()
+        pass
 
 
 class MSE(LossFunction):
 
     def __init__(self, n1: GraphNode, n2: GraphNode):
         super().__init__(n1, n2)
-        self._size = None
+        diff = Add(n1, Multiply(Variable(-1), n2))
+        square = Multiply(diff, diff)
+        # TODO: this should actually sum over cols, and then over rows? can I assume we have 1 prediction at a time?
+        # TODO: if so, then need to sum over col. if not? how the fuck should the grads be passed?
+        se = SumOverRows(square)
+        mse = Divide(se, RowCount(square))
+        self._node = mse
 
     def forward(self):
-        v1 = self._node1.forward()  # serves as y_hat
-        v2 = self._node2.forward()  # serves as y_truth
-        assert v1.shape == v2.shape
-        self._size = v1.size
-        self._value = np.sum((self._node1.forward() - self._node2.forward()) ** 2) / self._size
+        self._value = self._node.forward()
         return self._value
 
     def _inner_backward(self, grad=None):
-        # TODO: is this the right implementation? should we store 2 values from forward? should we add a getter?
-        n1_value = self._node1.forward()
-        n2_value = self._node2.forward()
-        # TODO: should we divide by size or shouldnt?
-        self._node1.backward((2/self._size) * self._gradient * n1_value)
-        self._node2.backward(-(2/self._size) * self._gradient * n2_value)
+        self._node.backward(self._gradient)
+
+    def _inner_reset(self):
+        self._node.reset()
 
 
 class CrossEntropy(LossFunction):
@@ -59,7 +58,12 @@ class CrossEntropy(LossFunction):
 
 
 def test_mse():
-    assert False  # TODO
+    y = np.zeros(10)
+    y[2] = 1  # digit 2
+    y_hat = np.random.dirichlet(np.ones(10), size=1)
+    vy, vyh = Variable(y), Variable(y_hat)
+    mse = MSE(vy, vyh)
+    np.testing.assert_allclose(mse.forward(), (1/y.shape[0]) * np.linalg.norm((y_hat-y)) ** 2)
 
 
 def test_cross_entropy():
@@ -68,4 +72,4 @@ def test_cross_entropy():
 
 if __name__ == '__main__':
     test_mse()
-    test_cross_entropy()
+    # test_cross_entropy()

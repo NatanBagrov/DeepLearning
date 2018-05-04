@@ -1,10 +1,13 @@
 from abc import abstractmethod
 
+import numpy as np
+
 from graph.GraphNode import GraphNode
 
 
 class Operation(GraphNode):
     def __init__(self):
+        super().__init__()
         self._value = 0
         self._gradient = 0
 
@@ -36,9 +39,28 @@ class Operation(GraphNode):
         pass
 
 
+class UnaryOperation(Operation):
+
+    def __init__(self, node: GraphNode):
+        super().__init__()
+        assert isinstance(node, GraphNode)
+        self._node = node
+
+    @abstractmethod
+    def forward(self):
+        pass
+
+    @abstractmethod
+    def _inner_backward(self, grad=None):
+        pass
+
+    def _inner_reset(self):
+        self._node.reset()
+
+
 class BinaryOperation(Operation):
     def __init__(self, left, right):
-        super(BinaryOperation, self).__init__()
+        super().__init__()
 
         assert isinstance(left, GraphNode)
         assert isinstance(right, GraphNode)
@@ -66,7 +88,7 @@ class BinaryOperation(Operation):
 
 class Add(BinaryOperation):
     def __init__(self, left, right):
-        super(Add, self).__init__(left, right)
+        super().__init__(left, right)
 
     def forward(self):
         self._value = self._left.forward() + self._right.forward()
@@ -82,7 +104,7 @@ class Add(BinaryOperation):
 
 class Multiply(BinaryOperation):
     def __init__(self, left, right):
-        super(Multiply, self).__init__(left, right)
+        super().__init__(left, right)
 
     def forward(self):
         self._value = self._left.forward() * self._right.forward()
@@ -90,7 +112,46 @@ class Multiply(BinaryOperation):
         return self._value
 
     def _inner_backward(self, grad=None):
-        d_current_d_left = self._right.value
-        d_current_d_right = self._left.value
+        d_current_d_left = self._right.get_value()
+        d_current_d_right = self._left.get_value()
 
         self._do_backward(d_current_d_left, d_current_d_right)
+
+
+class Divide(BinaryOperation):
+
+    def __init__(self, numerator, denominator):
+        super().__init__(numerator, denominator)
+
+    def forward(self):
+        self._value = self._left.forward() / self._right.forward()
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        nom = self._left.get_value()
+        denom = self._right.get_value()
+        d_current_d_nom = 1 / denom
+        d_current_d_denom = - (nom / (denom ** 2))
+        self._do_backward(d_current_d_nom, d_current_d_denom)
+
+
+class RowCount(UnaryOperation):
+    def forward(self):
+        node_value = self._node.forward()
+        self._value = node_value.shape[0] if isinstance(node_value, np.ndarray) else 1
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        pass  # Does nothing
+
+
+class SumOverRows(UnaryOperation):
+    # TODO: how to sum? should sum over rows? cols? both? maybe create SumOverAxisFactory?
+    def forward(self):
+        node_value = self._node.forward()
+        self._value = np.sum(node_value, axis=0) if isinstance(node_value, np.ndarray) else node_value
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        # TODO: implement with respect to the upper TODO.
+        self._node.backward(self._gradient)
