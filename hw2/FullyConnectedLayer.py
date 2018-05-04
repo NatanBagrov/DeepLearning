@@ -4,23 +4,29 @@ import numpy as np
 
 from utils.ActivationFunctions import ActivationFunction
 from utils.RegularizationMethods import RegularizationMethod
+from graph.Operation import Add, Multiply
+from graph.GraphNode import GraphNode
+from graph.Variable import Variable
 
 
-class FullyConnectedLayer:
-    def __init__(self, inputs_num: int, outputs_num: int, activation_function: ActivationFunction,
+class FullyConnectedLayer(GraphNode):
+    def __init__(self, inputs_num: int, outputs_num: int, activation_function: ActivationFunction.__class__,
                  regularization_method: RegularizationMethod, weight_decay: float):
         self._af = activation_function
         self._lambda = weight_decay
         self._rm = regularization_method
-        self._w = \
-            np.random.uniform(-1 / math.sqrt(inputs_num), 1 / math.sqrt(inputs_num), (inputs_num, outputs_num))
-        self._b = np.zeros(outputs_num)
-        self._output = np.zeros(outputs_num)
+        self._w = Variable(
+            np.random.uniform(-1 / math.sqrt(inputs_num), 1 / math.sqrt(inputs_num), (inputs_num, outputs_num)))
+        self._b = Variable(np.zeros(outputs_num))
+        self._input = Variable(None)  # TODO: placeholder if you want
+        # TODO: add regularization once its API is clear
+        self._output = self._af(Add(Multiply(self._w, self._input), self._b))
 
-    def feed_forward(self, inputs):
-        self._output = self._af.forward(np.dot(inputs.T, self._w) + self._b)
-        return self._output
+    def forward(self):
+        return self._output.forward()
 
-    def feed_back(self, output_from_prev, grads_from_next, step_size):
-        self._b -= step_size * grads_from_next
-        # self._w += TODO: continue here...
+    def backward(self, grads=None):
+        self._output.backward()
+
+    def reset(self):
+        self._output.reset()

@@ -40,6 +40,9 @@ class BinaryOperation(Operation):
     def __init__(self, left, right):
         super(BinaryOperation, self).__init__()
 
+        assert isinstance(left, GraphNode)
+        assert isinstance(right, GraphNode)
+
         self._left = left
         self._right = right
 
