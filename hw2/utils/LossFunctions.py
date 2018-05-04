@@ -49,12 +49,20 @@ class MSE(LossFunction):
 
 
 class CrossEntropy(LossFunction):
+    def __init__(self, label: GraphNode, predicted: GraphNode):
+        super(CrossEntropy, self).__init__(label, predicted)
+        Log()
 
     def forward(self):
         pass
 
     def _inner_backward(self, grad=None):
         pass
+
+loss_name_to_class = {
+    'MSE': MSE,
+    'cross-entropy': CrossEntropy
+}
 
 
 def test_mse():

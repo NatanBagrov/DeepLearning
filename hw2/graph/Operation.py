@@ -103,11 +103,11 @@ class Add(BinaryOperation):
 
 
 class Multiply(BinaryOperation):
-    def __init__(self, left, right):
+    def __init__(self, left: GraphNode, right: GraphNode):
         super().__init__(left, right)
 
     def forward(self):
-        self._value = self._left.forward() * self._right.forward()
+        self._value = self._left.forward() @ self._right.forward()
 
         return self._value
 

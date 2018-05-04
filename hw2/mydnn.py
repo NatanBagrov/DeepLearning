@@ -3,6 +3,7 @@ from timeit import timeit
 from utils.LossFunctions import CrossEntropy
 from utils.RegularizationMethods import regularization_method_name_to_class
 from utils.ActivationFunctions import activation_function_name_to_class
+from utils.LossFunctions import loss_name_to_class
 from FullyConnectedLayer import FullyConnectedLayer
 from graph.Variable import Variable
 from graph.Operation import Add, Multiply
