@@ -8,11 +8,8 @@ from graph.Variable import Variable
 from graph.Operation import Add, Multiply
 
 
-class mydnn():
+class mydnn:
     def __init__(self, architecture, loss, weight_decay=0):
-        self.prepare_dictionaries()  # TODO: this should create the string->func dict of
-                                    # activation/regularization/loss from the utils
-
         self._x_variable = Variable(None) # TODO: call it placeholder
         self._y_variable = Variable(None)
         self._architecture, self._prediction_variable, regularization_cost = \

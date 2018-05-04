@@ -3,6 +3,7 @@ from graph.GraphNode import GraphNode
 
 class Variable(GraphNode):
     def __init__(self, value):
+        super().__init__()
         self._value = value
         self._gradient = 0
         self._gradient_sum = 0
