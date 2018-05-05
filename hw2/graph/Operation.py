@@ -87,6 +87,7 @@ class BinaryOperation(Operation):
         self._left.backward(self._gradient * d_current_d_left)
         self._right.backward(self._gradient * d_current_d_right)
 
+
 class Add(BinaryOperation):
     def __init__(self, left, right):
         super().__init__(left, right)
@@ -201,7 +202,7 @@ class ReduceSum(ReductionOperation):
         return self._value
 
     def _inner_backward(self, grad=None):
-        self._node.backward(self._gradient * np.ones(self._size.forward()))
+        self._node.backward(np.full(self._node._value.shape, grad))
 
 
 class ReduceSize(ReductionOperation):

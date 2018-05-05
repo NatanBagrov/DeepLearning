@@ -29,20 +29,26 @@ class MSE(LossFunction):
 
     def __init__(self, label: GraphNode, predicted: GraphNode):
         super().__init__(label, predicted)
-        diff = Add(predicted, HadamardMult(Variable(-1), label))
-        square = HadamardMult(diff, diff)
-        mse = ReduceMean(square, 1)
-        self._node = mse
+        self._label = label
+        self._predicted = predicted
 
     def forward(self):
-        self._value = self._node.forward()
+        self._value = np.mean(np.square(np.subtract(self._label.forward(), self._predicted.forward())))
+
         return self._value
 
     def _inner_backward(self, grad=None):
-        self._node.backward(self._gradient)
+        if grad is None:
+            grad = 1.0
+
+        dl_dlabel = 2.0 * np.subtract(self._label.forward(), self._predicted.forward()) / self._label._value.size
+        dl_dpredicted = -dl_dlabel
+
+        self._label.backward(dl_dlabel)
+        self._predicted.backward(dl_dpredicted)
 
     def _inner_reset(self):
-        self._node.reset()
+        pass
 
 
 class CrossEntropy(LossFunction):
