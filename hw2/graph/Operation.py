@@ -118,6 +118,21 @@ class Multiply(BinaryOperation):
 
         self._do_backward(d_current_d_left, d_current_d_right)
 
+class HadamardMult(BinaryOperation):
+    def __init__(self, left: GraphNode, right: GraphNode):
+        super().__init__(left, right)
+
+    def forward(self):
+        self._value = self._left.forward() * self._right.forward()
+
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        d_current_d_left = self._right.get_value()
+        d_current_d_right = self._left.get_value()
+
+        self._do_backward(d_current_d_left, d_current_d_right)
+
 
 class Divide(BinaryOperation):
 
@@ -134,6 +149,24 @@ class Divide(BinaryOperation):
         d_current_d_nom = 1 / denom
         d_current_d_denom = - (nom / (denom ** 2))
         self._do_backward(d_current_d_nom, d_current_d_denom)
+
+
+class Transpose(UnaryOperation):
+
+    def __init__(self, node: GraphNode):
+        super().__init__(node)
+
+    def forward(self):
+        node_value = self._node.forward()
+        self._value = node_value.T if isinstance(node_value, np.ndarray) else node_value
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        node_value = self._node.forward()
+        if isinstance(node_value, np.ndarray):
+            self._node.backward(self._gradient.T)
+        else:
+            self._node.backward(self._gradient)
 
 
 class ReductionOperation(UnaryOperation):
@@ -179,12 +212,11 @@ class ReduceSize(ReductionOperation):
 
 
 class ReduceMean(ReductionOperation):
-    # TODO: write few tests
     def __init__(self, node: GraphNode, axis: int):
         sum = ReduceSum(node, axis)
         size = ReduceSize(node, axis)
         one_div_size = Divide(Variable(1), size)
-        res = Multiply(sum, one_div_size)  # TODO: BROKEN. float @ np.float not supported.
+        res = HadamardMult(sum, one_div_size)
         super().__init__(res, axis)
 
     def forward(self):

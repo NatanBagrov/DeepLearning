@@ -3,7 +3,7 @@ from abc import abstractmethod
 import numpy as np
 
 from graph.GraphNode import GraphNode
-from graph.Operation import Operation, Add, Multiply, SumOverRows, RowCount, Divide, ReduceMean
+from graph.Operation import Operation, Add, Multiply, ReduceMean, HadamardMult
 from graph.Variable import Variable
 
 
@@ -29,9 +29,9 @@ class MSE(LossFunction):
 
     def __init__(self, label: GraphNode, predicted: GraphNode):
         super().__init__(label, predicted)
-        diff = Add(predicted, Multiply(Variable(-1), label))
-        square = Multiply(diff, diff)
-        mse = ReduceMean(square, 0)
+        diff = Add(predicted, HadamardMult(Variable(-1), label))
+        square = HadamardMult(diff, diff)
+        mse = ReduceMean(square, 1)
         self._node = mse
 
     def forward(self):
