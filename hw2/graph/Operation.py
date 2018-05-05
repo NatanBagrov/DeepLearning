@@ -3,6 +3,7 @@ from abc import abstractmethod
 import numpy as np
 
 from graph.GraphNode import GraphNode
+from graph.Variable import Variable
 
 
 class Operation(GraphNode):
@@ -135,23 +136,94 @@ class Divide(BinaryOperation):
         self._do_backward(d_current_d_nom, d_current_d_denom)
 
 
-class RowCount(UnaryOperation):
+class ReductionOperation(UnaryOperation):
+
+    def __init__(self, node: GraphNode, axis: int):
+        super().__init__(node)
+        self._axis = axis
+
+    @abstractmethod
+    def _inner_backward(self, grad=None):
+        pass
+
+    def _inner_reset(self):
+        self._node.reset()
+
+
+class ReduceSum(ReductionOperation):
+    def __init__(self, node: GraphNode, axis: int):
+        super().__init__(node, axis)
+        self._size = ReduceSize(node, axis)
+
     def forward(self):
         node_value = self._node.forward()
-        self._value = node_value.shape[0] if isinstance(node_value, np.ndarray) else 1
+        self._value = np.sum(node_value, axis=self._axis) if isinstance(node_value, np.ndarray) else node_value
         return self._value
 
     def _inner_backward(self, grad=None):
-        pass  # Does nothing
+        self._node.backward(self._gradient * np.ones(self._size.forward()))
 
 
-class SumOverRows(UnaryOperation):
-    # TODO: how to sum? should sum over rows? cols? both? maybe create SumOverAxisFactory?
+class ReduceSize(ReductionOperation):
+
+    def __init__(self, node: GraphNode, axis: int):
+        super().__init__(node, axis)
+
     def forward(self):
         node_value = self._node.forward()
-        self._value = np.sum(node_value, axis=0) if isinstance(node_value, np.ndarray) else node_value
+        self._value = node_value.shape[self._axis] if isinstance(node_value, np.ndarray) else 1
         return self._value
 
     def _inner_backward(self, grad=None):
-        # TODO: implement with respect to the upper TODO.
+        pass
+
+
+class ReduceMean(ReductionOperation):
+    # TODO: write few tests
+    def __init__(self, node: GraphNode, axis: int):
+        sum = ReduceSum(node, axis)
+        size = ReduceSize(node, axis)
+        one_div_size = Divide(Variable(1), size)
+        res = Multiply(sum, one_div_size)  # TODO: BROKEN. float @ np.float not supported.
+        super().__init__(res, axis)
+
+    def forward(self):
+        self._value = self._node.forward()
+        return self._value
+
+    def _inner_backward(self, grad=None):
         self._node.backward(self._gradient)
+
+
+def test_reduce_sum():
+    # Matrix
+    x = np.array([[1, 2, 3], [11, 12, 13]])
+    v = Variable(x)
+    rs = ReduceSum(v, 1)
+    np.testing.assert_allclose(rs.forward(), np.array([6, 36]), rtol=1e-5)
+    rs2 = ReduceSum(v, 0)
+    np.testing.assert_allclose(rs2.forward(), np.array([12, 14, 16]), rtol=1e-5)
+    op_sum = ReduceSum(ReduceSum(v, 0), 0)
+    np.testing.assert_allclose(op_sum.forward(), np.sum(x), rtol=1e-5)
+    # Array
+    y = np.array([-0.5, 1, 2.5])
+    v2 = Variable(y)
+    r = ReduceSum(v2, 0)
+    np.testing.assert_allclose(r.forward(), 3.0, rtol=1e-5)
+    r.backward(1)
+    np.testing.assert_equal(v2.get_gradient(), [1, 1, 1])
+
+
+def test_reduce_mean():
+    # Array
+    y = np.array([-0.5, 1, 2.5])
+    v2 = Variable(y)
+    m = ReduceMean(v2, 0)
+    np.testing.assert_allclose(m.forward(), 1.0, rtol=1e-5)
+    m.backward(1)
+    np.testing.assert_equal(v2.get_gradient(), [1/3, 1/3, 1/3])
+
+
+if __name__ == '__main__':
+    test_reduce_sum()
+    test_reduce_mean()

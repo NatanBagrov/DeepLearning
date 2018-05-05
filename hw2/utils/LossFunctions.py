@@ -3,7 +3,7 @@ from abc import abstractmethod
 import numpy as np
 
 from graph.GraphNode import GraphNode
-from graph.Operation import Operation, Add, Multiply, SumOverRows, RowCount, Divide
+from graph.Operation import Operation, Add, Multiply, SumOverRows, RowCount, Divide, ReduceMean
 from graph.Variable import Variable
 
 
@@ -27,14 +27,11 @@ class LossFunction(Operation):
 
 class MSE(LossFunction):
 
-    def __init__(self, n1: GraphNode, n2: GraphNode):
-        super().__init__(n1, n2)
-        diff = Add(n1, Multiply(Variable(-1), n2))
+    def __init__(self, label: GraphNode, predicted: GraphNode):
+        super().__init__(label, predicted)
+        diff = Add(predicted, Multiply(Variable(-1), label))
         square = Multiply(diff, diff)
-        # TODO: this should actually sum over cols, and then over rows? can I assume we have 1 prediction at a time?
-        # TODO: if so, then need to sum over col. if not? how the fuck should the grads be passed?
-        se = SumOverRows(square)
-        mse = Divide(se, RowCount(square))
+        mse = ReduceMean(square, 0)
         self._node = mse
 
     def forward(self):
@@ -58,6 +55,7 @@ class CrossEntropy(LossFunction):
 
     def _inner_backward(self, grad=None):
         pass
+
 
 loss_name_to_class = {
     'MSE': MSE,
