@@ -83,20 +83,22 @@ class BinaryOperation(Operation):
         self._right.reset()
 
     def _do_backward(self, d_current_d_left, d_current_d_right):
+        # TODO: i think it is bad idea to unite them
         self._left.backward(self._gradient * d_current_d_left)
         self._right.backward(self._gradient * d_current_d_right)
-
 
 class Add(BinaryOperation):
     def __init__(self, left, right):
         super().__init__(left, right)
 
     def forward(self):
+        # TODO: BEWARE OF bad broadcasting
         self._value = self._left.forward() + self._right.forward()
 
         return self._value
 
     def _inner_backward(self, grad=None):
+        # TODO: assuming broadcasting here, expect bugs
         d_current_d_left = 1
         d_current_d_right = 1
 
@@ -117,6 +119,11 @@ class Multiply(BinaryOperation):
         d_current_d_right = self._left.get_value()
 
         self._do_backward(d_current_d_left, d_current_d_right)
+
+    def _do_backward(self, d_current_d_left, d_current_d_right):
+        self._left.backward(self._gradient @ np.transpose(d_current_d_left))
+        self._right.backward(np.transpose(d_current_d_right) @ self._gradient)
+
 
 class HadamardMult(BinaryOperation):
     def __init__(self, left: GraphNode, right: GraphNode):
