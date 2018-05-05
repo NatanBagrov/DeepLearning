@@ -34,8 +34,8 @@ class Sigmoid(ActivationFunction):
         return self._value
 
     def _inner_backward(self, grad=None):
-        grad_sig = self.sigma(self._gradient)
-        self._node.backward(grad_sig * (1.0 - grad_sig))
+        grad_sig = self.sigma(self._node.get_value())
+        self._node.backward(self._gradient * (grad_sig * (1.0 - grad_sig)))
 
 
 class ReLU(ActivationFunction):
@@ -45,7 +45,7 @@ class ReLU(ActivationFunction):
         return self._value
 
     def _inner_backward(self, grad=None):
-        self._node.backward((self._gradient > 0).astype(float))  # int also ok, maybe better?
+        self._node.backward(self._gradient * ((self.get_value() > 0).astype(float)))  # int also ok, maybe better?
 
 
 class Softmax(ActivationFunction):
@@ -59,8 +59,8 @@ class Softmax(ActivationFunction):
 
     def _inner_backward(self, grad=None):
         # TODO: derivative of x (np.array) returns a martix, shouldnt it return an array?
-        s = self._gradient.reshape(-1, 1)
-        self._node.backward(np.diagflat(s) - np.dot(s, s.T))
+        s = self._node.get_value().reshape(-1, 1)
+        self._node.backward(self._gradient * (np.diagflat(s) - np.dot(s, s.T)))
 
 
 class Identity(ActivationFunction):
@@ -85,7 +85,7 @@ def test_sigmoid():
     v = Variable(x)
     sig = Sigmoid(v)
     np.testing.assert_allclose(sig.forward(), [0.73105858, 0.75026011, 0.76852478, 0.99592986], rtol=1e-5)
-    sig.backward(x)
+    sig.backward(np.ones(4))
     np.testing.assert_allclose(v.get_gradient(), [0.19661193, 0.18736987, 0.17789444, 0.00405357], rtol=1e-5)
 
 
@@ -97,7 +97,7 @@ def test_relu():
     expected = np.array(x)
     expected[x < 0] = 0
     np.testing.assert_allclose(relu.forward(), expected, rtol=1e-5)
-    relu.backward(x)
+    relu.backward(np.ones(10))
     np.testing.assert_equal(v.get_gradient(), np.sign(expected))
 
 
