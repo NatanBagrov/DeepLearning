@@ -3,7 +3,8 @@ from abc import abstractmethod
 import numpy as np
 
 from graph.GraphNode import GraphNode
-from graph.Operation import Operation, Add, Multiply, ReduceMean, HadamardMult
+from graph.Operation import Operation, Add, Multiply, HadamardMult, Divide, Subtract
+from graph.UnaryOperations import Transpose, ReduceSize
 from graph.Variable import Variable
 
 
@@ -29,9 +30,10 @@ class MSE(LossFunction):
 
     def __init__(self, label: GraphNode, predicted: GraphNode):
         super().__init__(label, predicted)
-        diff = Add(predicted, HadamardMult(Variable(-1), label))
-        square = HadamardMult(diff, diff)
-        mse = ReduceMean(square, 1)
+        diff = Subtract(predicted, label)
+        squared_error = Multiply(diff, Transpose(diff))
+        self._size_node = ReduceSize(diff, axis=0)
+        mse = Divide(squared_error, self._size_node)
         self._node = mse
 
     def forward(self):
@@ -43,6 +45,7 @@ class MSE(LossFunction):
 
     def _inner_reset(self):
         self._node.reset()
+        self._size_node.reset()
 
 
 class CrossEntropy(LossFunction):
@@ -63,19 +66,21 @@ loss_name_to_class = {
 }
 
 
-def test_mse():
+def test_mse_basic():
     y = np.zeros(10)
-    y[2] = 1  # digit 2
-    y_hat = np.random.dirichlet(np.ones(10), size=1)
+    y_hat = np.ones(10)
+    # MSE = 10 * 1 / 10 = 1
     vy, vyh = Variable(y), Variable(y_hat)
     mse = MSE(vy, vyh)
-    np.testing.assert_allclose(mse.forward(), (1/y.shape[0]) * np.linalg.norm((y_hat-y)) ** 2)
-
+    np.testing.assert_allclose(mse.forward(), 1, rtol=1e-5)
+    mse.backward(1)
+    #dL/dyhat = dL/dMSE * dMSE/dyhat = 1 * 2/10 * 1 = 0.2
+    np.testing.assert_allclose(vyh.get_gradient(), 2/10 * (y_hat-y))
 
 def test_cross_entropy():
     assert False  # TODO
 
 
 if __name__ == '__main__':
-    test_mse()
+    test_mse_basic()
     # test_cross_entropy()

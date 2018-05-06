@@ -19,4 +19,3 @@ class GraphNode:
     @abstractmethod
     def reset(self):
         pass
-

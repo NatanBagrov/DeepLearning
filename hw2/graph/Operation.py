@@ -103,6 +103,22 @@ class Add(BinaryOperation):
         self._do_backward(d_current_d_left, d_current_d_right)
 
 
+class Subtract(BinaryOperation):
+    def __init__(self, left, right):
+        super().__init__(left, right)
+
+    def forward(self):
+        self._value = self._left.forward() + self._right.forward()
+
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        d_current_d_left = 1
+        d_current_d_right = -1
+
+        self._do_backward(d_current_d_left, d_current_d_right)
+
+
 class Multiply(BinaryOperation):
     def __init__(self, left: GraphNode, right: GraphNode):
         super().__init__(left, right)
@@ -118,6 +134,7 @@ class Multiply(BinaryOperation):
 
         self._do_backward(d_current_d_left, d_current_d_right)
 
+
 class HadamardMult(BinaryOperation):
     def __init__(self, left: GraphNode, right: GraphNode):
         super().__init__(left, right)
@@ -128,8 +145,8 @@ class HadamardMult(BinaryOperation):
         return self._value
 
     def _inner_backward(self, grad=None):
-        d_current_d_left = self._right.get_value()
-        d_current_d_right = self._left.get_value()
+        d_current_d_left = self._right.forward()
+        d_current_d_right = self._left.forward()
 
         self._do_backward(d_current_d_left, d_current_d_right)
 
@@ -149,113 +166,3 @@ class Divide(BinaryOperation):
         d_current_d_nom = 1 / denom
         d_current_d_denom = - (nom / (denom ** 2))
         self._do_backward(d_current_d_nom, d_current_d_denom)
-
-
-class Transpose(UnaryOperation):
-
-    def __init__(self, node: GraphNode):
-        super().__init__(node)
-
-    def forward(self):
-        node_value = self._node.forward()
-        self._value = node_value.T if isinstance(node_value, np.ndarray) else node_value
-        return self._value
-
-    def _inner_backward(self, grad=None):
-        node_value = self._node.forward()
-        if isinstance(node_value, np.ndarray):
-            self._node.backward(self._gradient.T)
-        else:
-            self._node.backward(self._gradient)
-
-
-class ReductionOperation(UnaryOperation):
-
-    def __init__(self, node: GraphNode, axis: int):
-        super().__init__(node)
-        self._axis = axis
-
-    @abstractmethod
-    def _inner_backward(self, grad=None):
-        pass
-
-    def _inner_reset(self):
-        self._node.reset()
-
-
-class ReduceSum(ReductionOperation):
-    def __init__(self, node: GraphNode, axis: int):
-        super().__init__(node, axis)
-        self._size = ReduceSize(node, axis)
-
-    def forward(self):
-        node_value = self._node.forward()
-        self._value = np.sum(node_value, axis=self._axis) if isinstance(node_value, np.ndarray) else node_value
-        return self._value
-
-    def _inner_backward(self, grad=None):
-        self._node.backward(self._gradient * np.ones(self._size.forward()))
-
-
-class ReduceSize(ReductionOperation):
-
-    def __init__(self, node: GraphNode, axis: int):
-        super().__init__(node, axis)
-
-    def forward(self):
-        node_value = self._node.forward()
-        self._value = node_value.shape[self._axis] if isinstance(node_value, np.ndarray) else 1
-        return self._value
-
-    def _inner_backward(self, grad=None):
-        pass
-
-
-class ReduceMean(ReductionOperation):
-    def __init__(self, node: GraphNode, axis: int):
-        sum = ReduceSum(node, axis)
-        size = ReduceSize(node, axis)
-        one_div_size = Divide(Variable(1), size)
-        res = HadamardMult(sum, one_div_size)
-        super().__init__(res, axis)
-
-    def forward(self):
-        self._value = self._node.forward()
-        return self._value
-
-    def _inner_backward(self, grad=None):
-        self._node.backward(self._gradient)
-
-
-def test_reduce_sum():
-    # Matrix
-    x = np.array([[1, 2, 3], [11, 12, 13]])
-    v = Variable(x)
-    rs = ReduceSum(v, 1)
-    np.testing.assert_allclose(rs.forward(), np.array([6, 36]), rtol=1e-5)
-    rs2 = ReduceSum(v, 0)
-    np.testing.assert_allclose(rs2.forward(), np.array([12, 14, 16]), rtol=1e-5)
-    op_sum = ReduceSum(ReduceSum(v, 0), 0)
-    np.testing.assert_allclose(op_sum.forward(), np.sum(x), rtol=1e-5)
-    # Array
-    y = np.array([-0.5, 1, 2.5])
-    v2 = Variable(y)
-    r = ReduceSum(v2, 0)
-    np.testing.assert_allclose(r.forward(), 3.0, rtol=1e-5)
-    r.backward(1)
-    np.testing.assert_equal(v2.get_gradient(), [1, 1, 1])
-
-
-def test_reduce_mean():
-    # Array
-    y = np.array([-0.5, 1, 2.5])
-    v2 = Variable(y)
-    m = ReduceMean(v2, 0)
-    np.testing.assert_allclose(m.forward(), 1.0, rtol=1e-5)
-    m.backward(1)
-    np.testing.assert_equal(v2.get_gradient(), [1/3, 1/3, 1/3])
-
-
-if __name__ == '__main__':
-    test_reduce_sum()
-    test_reduce_mean()
