@@ -4,7 +4,7 @@ import numpy as np
 
 from utils.ActivationFunctions import ActivationFunction
 from utils.RegularizationMethods import RegularizationMethod
-from graph.Operation import Add, Multiply
+from graph.BinaryOperations import Add, Multiply
 from graph.GraphNode import GraphNode
 from graph.Variable import Variable
 

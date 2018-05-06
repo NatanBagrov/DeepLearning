@@ -4,7 +4,6 @@ import numpy as np
 
 from graph.GraphNode import GraphNode
 from graph.Operation import Operation
-from graph.Variable import Variable
 
 
 class RegularizationMethod(Operation):
@@ -28,48 +27,24 @@ class RegularizationMethod(Operation):
 class L2(RegularizationMethod):
 
     def forward(self):
-        self._value = np.linalg.norm(self._node.forward()) ** 2
+        self._value = np.sum(self._node.forward() ** 2)
         return self._value
 
     def _inner_backward(self, grad=None):
-        self._node.backward(2 * self._gradient)
+        self._node.backward(self._gradient * 2 * self._node.get_value())
 
 
 class L1(RegularizationMethod):
 
     def forward(self):
-        self._value = np.linalg.norm(self._node.forward(), 1)
+        self._value = np.sum(np.abs(self._node.forward()))
         return self._value
 
     def _inner_backward(self, grad=None):
-        # TODO: passing 0 for zero entry in the grad is ok?
-        self._node.backward(np.sign(self._gradient))
+        self._node.backward(self._gradient * np.sign(self._node.get_value()))
 
 
 regularization_method_name_to_class = {
     'l1': L1,
     'l2': L2,
 }
-
-
-def test_l1():
-    x = np.random.rand(10) - 0.5
-    v = Variable(x)
-    l1 = L1(v)
-    np.testing.assert_allclose(l1.forward(), np.sum(np.abs(x)), rtol=1e-5)
-    l1.backward(x)
-    np.testing.assert_equal(v.get_gradient(), np.sign(x))
-
-
-def test_l2():
-    x = np.random.rand(10) - 0.5
-    v = Variable(x)
-    l2 = L2(v)
-    np.testing.assert_allclose(l2.forward(), np.sum(np.abs(x) ** 2), rtol=1e-5)
-    l2.backward(x)
-    np.testing.assert_allclose(v.get_gradient(), 2 * x, rtol=1e-5)
-
-
-if __name__ == '__main__':
-    test_l1()
-    test_l2()

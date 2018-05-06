@@ -3,8 +3,7 @@ from abc import abstractmethod
 import numpy as np
 
 from graph.GraphNode import GraphNode
-from graph.Operation import Operation, Add, Multiply, ReduceMean, HadamardMult
-from graph.Variable import Variable
+from graph.Operation import Operation
 
 
 class LossFunction(Operation):
@@ -38,14 +37,11 @@ class MSE(LossFunction):
         return self._value
 
     def _inner_backward(self, grad=None):
-        if grad is None:
-            grad = 1.0
-
         dl_dlabel = 2.0 * np.subtract(self._label.forward(), self._predicted.forward()) / self._label._value.size
         dl_dpredicted = -dl_dlabel
-
-        self._label.backward(dl_dlabel)
-        self._predicted.backward(dl_dpredicted)
+        # multiplied by self._gradient just to be on the safe side and not to assume we are the last node.
+        self._label.backward(self._gradient * dl_dlabel)
+        self._predicted.backward(self._gradient * dl_dpredicted)
 
     def _inner_reset(self):
         pass
@@ -68,20 +64,3 @@ loss_name_to_class = {
     'cross-entropy': CrossEntropy
 }
 
-
-def test_mse():
-    y = np.zeros(10)
-    y[2] = 1  # digit 2
-    y_hat = np.random.dirichlet(np.ones(10), size=1)
-    vy, vyh = Variable(y), Variable(y_hat)
-    mse = MSE(vy, vyh)
-    np.testing.assert_allclose(mse.forward(), (1/y.shape[0]) * np.linalg.norm((y_hat-y)) ** 2)
-
-
-def test_cross_entropy():
-    assert False  # TODO
-
-
-if __name__ == '__main__':
-    test_mse()
-    # test_cross_entropy()

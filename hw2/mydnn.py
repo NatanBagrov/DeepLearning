@@ -6,7 +6,7 @@ from utils.ActivationFunctions import activation_function_name_to_class
 from utils.LossFunctions import loss_name_to_class
 from FullyConnectedLayer import FullyConnectedLayer
 from graph.Variable import Variable
-from graph.Operation import Add, Multiply
+from graph.BinaryOperations import Add, Multiply
 
 
 class mydnn:

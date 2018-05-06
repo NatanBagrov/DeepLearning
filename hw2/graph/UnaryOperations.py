@@ -4,8 +4,28 @@ from random import random
 import numpy as np
 
 from graph.GraphNode import GraphNode
-from graph.Operation import Divide, HadamardMult, UnaryOperation
+from graph.Operation import Operation
+from graph.BinaryOperations import HadamardMult, Divide
 from graph.Variable import Variable
+
+
+class UnaryOperation(Operation):
+
+    def __init__(self, node: GraphNode):
+        super().__init__()
+        assert isinstance(node, GraphNode)
+        self._node = node
+
+    @abstractmethod
+    def forward(self):
+        pass
+
+    @abstractmethod
+    def _inner_backward(self, grad=None):
+        pass
+
+    def _inner_reset(self):
+        self._node.reset()
 
 
 class Transpose(UnaryOperation):
@@ -68,7 +88,7 @@ class ReduceSum(ReductionOperation):
         return self._value
 
     def _inner_backward(self, grad=None):
-        self._node.backward(self._gradient * np.ones(self._size.forward()))
+        self._node.backward(np.full(self._node.get_value().shape, self._gradient))
 
 
 class ReduceMean(ReductionOperation):
@@ -85,50 +105,3 @@ class ReduceMean(ReductionOperation):
 
     def _inner_backward(self, grad=None):
         self._node.backward(self._gradient)
-
-
-def test_transpose():
-    x = np.random.rand(5, 3)
-    v = Variable(x)
-    t = Transpose(v)
-    np.testing.assert_allclose(t.forward(), x.T)
-    grads = np.random.rand(3, 5)
-    t.backward(grads)
-    np.testing.assert_allclose(v.get_gradient(), grads.T)
-
-
-def test_reduce_size():
-    x = np.random.rand(5, 3)
-    v = Variable(x)
-    rs_full = ReduceSize(v)
-    rs_rows = ReduceSize(v, 0)
-    rs_cols = ReduceSize(v, 1)
-    np.testing.assert_equal(rs_full.forward(), 15)
-    np.testing.assert_equal(rs_rows.forward(), 5)
-    np.testing.assert_equal(rs_cols.forward(), 3)
-    grad_before = v.get_gradient()
-    rs_full.backward(np.random.rand(5, 3))
-    np.testing.assert_equal(v.get_gradient(), grad_before)
-
-
-def test_reduce_sum():
-    x = np.random.rand(5, 3)
-    v1, v2 = Variable(x), Variable(x)
-    rs_rows = ReduceSum(v1, 0)
-    rs_cols = ReduceSum(v2, 1)
-    np.testing.assert_allclose(rs_rows.forward(), np.sum(x, 0))
-    np.testing.assert_allclose(rs_cols.forward(), np.sum(x, 1))
-    grad = random()
-    rs_rows.backward(grad)
-    np.testing.assert_allclose(v1.get_gradient(), grad * np.ones((5,)))
-    rs_cols.backward(grad)
-    np.testing.assert_allclose(v2.get_gradient(), grad * np.ones((3,)))
-
-
-
-
-if __name__ == '__main__':
-    test_transpose()
-    test_reduce_size()
-    test_reduce_sum()
-    # test_reduce_mean()

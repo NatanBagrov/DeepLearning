@@ -1,9 +1,14 @@
+from random import random
 from unittest import TestCase
+
+from graph.UnaryOperations import ReduceMean, ReduceSum, ReduceSize, Transpose
 from graph.Variable import Variable
-from graph.Operation import Multiply, Add, HadamardMult, ReduceMean
+from graph.BinaryOperations import Add, Multiply, HadamardMult
 from utils.LossFunctions import MSE
 import numpy as np
 from sklearn.metrics import mean_squared_error
+
+from utils.RegularizationMethods import L1, L2
 
 
 class TestMultiply(TestCase):
@@ -98,7 +103,7 @@ class TestAdd(TestCase):
         np.testing.assert_allclose(dl_dx_actual, dl_dxb)
         np.testing.assert_allclose(dl_db_actual, dl_dxb)
 
-       # self.fail()
+    # self.fail()
 
     def test_vector(self):
         left = np.array([[1], [2], [3], [4]])
@@ -120,8 +125,7 @@ class TestAdd(TestCase):
         np.testing.assert_allclose(dl_dleft_actual, dl_dleftright)
         np.testing.assert_allclose(dl_dright_actual, dl_dleftright)
 
-        #self.fail()
-
+        # self.fail()
 
 
 class TestMSE(TestCase):
@@ -148,7 +152,7 @@ class TestMSE(TestCase):
         mse_node.backward()
         np.testing.assert_allclose(y_true_variable.get_gradient(), mse_derivative_desired)
 
-        #self.fail()
+        # self.fail()
 
 
 class TestHadamardMult(TestCase):
@@ -228,8 +232,8 @@ class TestHadamardMult(TestCase):
         np.testing.assert_almost_equal(dl_dx_desired, dl_dx_actual)
 
 
-class TestReduceMean(TestCase):
-    def test_forward_backward(self):
+class TestReduceOperations(TestCase):
+    def test_reduce_mean_forward_backward(self):
         x = np.array([[1], [2], [3], [4]])
 
         x_variable = Variable(x)
@@ -250,4 +254,82 @@ class TestReduceMean(TestCase):
 
         # self.fail()
 
+    def test_reduce_mean_merged(self):
+        # Array
+        y = np.array([-0.5, 1, 2.5])
+        v2 = Variable(y)
+        m = ReduceMean(v2, 0)
+        np.testing.assert_allclose(m.forward(), 1.0, rtol=1e-5)
+        m.backward(1)
+        np.testing.assert_equal(v2.get_gradient(), [1 / 3, 1 / 3, 1 / 3])
 
+    def test_transpose(self):
+        x = np.random.rand(5, 3)
+        v = Variable(x)
+        t = Transpose(v)
+        np.testing.assert_allclose(t.forward(), x.T)
+        grads = np.random.rand(3, 5)
+        t.backward(grads)
+        np.testing.assert_allclose(v.get_gradient(), grads.T)
+
+    def test_reduce_size(self):
+        x = np.random.rand(5, 3)
+        v = Variable(x)
+        rs_full = ReduceSize(v)
+        rs_rows = ReduceSize(v, 0)
+        rs_cols = ReduceSize(v, 1)
+        np.testing.assert_equal(rs_full.forward(), 15)
+        np.testing.assert_equal(rs_rows.forward(), 5)
+        np.testing.assert_equal(rs_cols.forward(), 3)
+        grad_before = v.get_gradient()
+        rs_full.backward(np.random.rand(5, 3))
+        np.testing.assert_equal(v.get_gradient(), grad_before)
+
+    def test_reduce_sum(self):
+        x = np.random.rand(5, 3)
+        v1, v2 = Variable(x), Variable(x)
+        rs_rows = ReduceSum(v1, 0)
+        rs_cols = ReduceSum(v2, 1)
+        np.testing.assert_allclose(rs_rows.forward(), np.sum(x, 0))
+        np.testing.assert_allclose(rs_cols.forward(), np.sum(x, 1))
+        grad = random()
+        rs_rows.backward(grad)
+        np.testing.assert_allclose(v1.get_gradient(), grad * np.ones((5, 3)))
+        rs_cols.backward(grad)
+        np.testing.assert_allclose(v2.get_gradient(), grad * np.ones((5, 3)))
+
+    def test_reduce_sum_merged(self):
+        # Matrix
+        x = np.array([[1, 2, 3], [11, 12, 13]])
+        v = Variable(x)
+        rs = ReduceSum(v, 1)
+        np.testing.assert_allclose(rs.forward(), np.array([6, 36]), rtol=1e-5)
+        rs2 = ReduceSum(v, 0)
+        np.testing.assert_allclose(rs2.forward(), np.array([12, 14, 16]), rtol=1e-5)
+        op_sum = ReduceSum(ReduceSum(v, 0), 0)
+        np.testing.assert_allclose(op_sum.forward(), np.sum(x), rtol=1e-5)
+        # Array
+        y = np.array([-0.5, 1, 2.5])
+        v2 = Variable(y)
+        r = ReduceSum(v2, 0)
+        np.testing.assert_allclose(r.forward(), 3.0, rtol=1e-5)
+        r.backward(1)
+        np.testing.assert_equal(v2.get_gradient(), [1, 1, 1])
+
+
+class TestRegularizationMethods(TestCase):
+    def test_l1(self):
+        x = np.random.rand(50, 30) - 0.5
+        v = Variable(x)
+        l1 = L1(v)
+        np.testing.assert_allclose(l1.forward(), np.sum(np.abs(x)), rtol=1e-5)
+        l1.backward(1)
+        np.testing.assert_equal(v.get_gradient(), np.sign(x))
+
+    def test_l2(self):
+        x = np.random.rand(50, 30) - 0.5
+        v = Variable(x)
+        l2 = L2(v)
+        np.testing.assert_allclose(l2.forward(), np.sum(np.abs(x) ** 2), rtol=1e-5)
+        l2.backward(1)
+        np.testing.assert_allclose(v.get_gradient(), 2 * x, rtol=1e-5)
