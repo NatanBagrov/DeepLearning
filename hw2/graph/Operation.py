@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import numpy as np
 
 from graph.GraphNode import GraphNode
 
@@ -15,9 +16,10 @@ class Operation(GraphNode):
 
     def backward(self, grad=None):
         if grad is None:
-            self._gradient = 1
-        else:
-            self._gradient += grad
+            grad = 1.0
+
+        self._gradient += grad
+#        assert isinstance(self._value, float) and isinstance(grad, float) or self._value.shape == grad.shape
 
         # Specific logic to be implemented in the concrete classes, 'grad' passed for safety (might be needed?)
         self._inner_backward(grad)

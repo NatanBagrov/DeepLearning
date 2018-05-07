@@ -66,7 +66,9 @@ class Softmax(ActivationFunction):
 class Identity(ActivationFunction):
 
     def forward(self):
-        return self._node.forward()
+        self._value = self._node.forward()
+
+        return self._value
 
     def _inner_backward(self, grad=None):
         self._node.backward(self._gradient)
