@@ -420,6 +420,8 @@ class TestMyDNN(TestCase):
     def test_one_layer_none_activation_none_regularization_mse(self):
         from keras import layers, optimizers, Sequential
 
+        np.random.seed(42)
+
         actual = mydnn([
             {
                 'input': 2,
@@ -461,7 +463,9 @@ class TestMyDNN(TestCase):
         w_actual = actual._architecture[0]._w._value
         b_actual = actual._architecture[0]._b._value
 
-        dl_db_desired = 2.0 * np.sum(x @ w_before + b_before) / x.shape[0]
+        np.random.seed(42)
+
+        dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3,1), b_before) - y) / x.shape[0]
         dl_db_actual1 = actual._architecture[0]._b.get_gradient()
         dl_db_actual2 = (b_before - b_actual) / 0.01
 
