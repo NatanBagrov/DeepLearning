@@ -158,13 +158,13 @@ class TestMSE(TestCase):
 
     def test_reduce_mean_broadcasting(self):
         x = np.arange(6).reshape(3, 2)
-        w = np.arange(6, 8).reshape(2,1)
+        w = np.arange(6, 8).reshape(2, 1)
         b = 12.0
         y = np.arange(8, 11).reshape(3, 1)
         dl_mse = 11.0
 
         x_variable = Variable(x)
-        w_variable= Variable(w)
+        w_variable = Variable(w)
         b_variable = Variable(b)
         y_variable = Variable(y)
 
@@ -205,6 +205,35 @@ class TestMSE(TestCase):
         mse_node.forward()
         mse_node.backward()
         np.testing.assert_allclose(y_true_variable.get_gradient(), mse_derivative_desired)
+
+    def test_reduce_mean_splitter_broadcasting(self):
+        x = np.arange(6).reshape(3, 2)
+        w = np.arange(6, 8).reshape(2, 1)
+        b = 12.0
+        y = np.arange(8, 11).reshape(3, 1)
+        dl_mse = 11.0
+
+        x_variable = Variable(x)
+        w_variable = Variable(w)
+        b_variable = Variable(b)
+        y_variable = Variable(y)
+
+        xw_node = Multiply(x_variable, w_variable)
+        xwb_node = Add(xw_node, b_variable)
+        xwb_mse_node = MSEWithSplitter(y_variable, xwb_node)
+
+        xwb_mse_desired = mean_squared_error(y, (x @ w) + np.full((3, 1), b))
+        xwb_mean_actual = xwb_mse_node.forward()
+        np.testing.assert_allclose(xwb_mean_actual, xwb_mse_desired)
+        xwb_mse_node.backward(dl_mse)
+
+        dl_db_actual = b_variable.get_gradient()
+        dl_db_desired = dl_mse * 2.0 * np.sum((x @ w) + np.full((3, 1), b) - y) / x.shape[0]
+
+        np.testing.assert_allclose(dl_db_actual, dl_db_desired)
+
+        dl_dx = x_variable.get_gradient()
+        dl_dw = w_variable.get_gradient()
 
 
 class TestHadamardMult(TestCase):
@@ -407,7 +436,7 @@ class TestFC(TestCase):
         np.testing.assert_allclose(dl_dw_actual, dl_dw_desired)
 
         dl_db_actual = fc._b.get_gradient()
-        dl_db_desired = np.array([[6+7+8]])
+        dl_db_desired = np.array([[6 + 7 + 8]])
 
         np.testing.assert_allclose(dl_db_actual, dl_db_desired)
 
@@ -428,13 +457,15 @@ class TestFC(TestCase):
 
         dl_dw_actual = fc._w.get_gradient()
         dl_dw_desired = np.array([
-            [x[:, 0].T @ dl_dxwb[:, 0], x[:, 0].T @ dl_dxwb[:, 1], x[:, 0].T @ dl_dxwb[:, 2], x[:, 0].T @ dl_dxwb[:, 3]],
-            [x[:, 1].T @ dl_dxwb[:, 0], x[:, 1].T @ dl_dxwb[:, 1], x[:, 1].T @ dl_dxwb[:, 2], x[:, 1].T @ dl_dxwb[:, 3]],
+            [x[:, 0].T @ dl_dxwb[:, 0], x[:, 0].T @ dl_dxwb[:, 1], x[:, 0].T @ dl_dxwb[:, 2],
+             x[:, 0].T @ dl_dxwb[:, 3]],
+            [x[:, 1].T @ dl_dxwb[:, 0], x[:, 1].T @ dl_dxwb[:, 1], x[:, 1].T @ dl_dxwb[:, 2],
+             x[:, 1].T @ dl_dxwb[:, 3]],
         ])
 
         np.testing.assert_allclose(dl_dw_actual, dl_dw_desired)
 
-        #self.fail()
+        # self.fail()
 
 
 class TestMyDNN(TestCase):
@@ -486,7 +517,7 @@ class TestMyDNN(TestCase):
 
         np.random.seed(42)
 
-        dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3,1), b_before) - y) / x.shape[0]
+        dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3, 1), b_before) - y) / x.shape[0]
         dl_db_actual1 = actual._architecture[0]._b.get_gradient()
         dl_db_actual2 = (b_before - b_actual) / 0.01
 
@@ -495,6 +526,7 @@ class TestMyDNN(TestCase):
 
         np.testing.assert_allclose(b_actual, b_desired)
         np.testing.assert_allclose(w_actual, w_desired)
+
 
 if "__main__" == __name__:
     TestReduceOperations().test_reduce_mean_forward_backward()
@@ -505,9 +537,9 @@ if "__main__" == __name__:
     current_module = sys.modules[__name__]
 
     for class_name, class_object in inspect.getmembers(sys.modules[__name__], predicate=inspect.isclass):
-            if 'Test' == class_name[:len('Test')]:
-                test_object = class_object()
+        if 'Test' == class_name[:len('Test')]:
+            test_object = class_object()
 
-                for function_name, function_object in inspect.getmembers(test_object, predicate=inspect.ismethod):
-                    if 'test' in function_name:
-                        function_object()
+            for function_name, function_object in inspect.getmembers(test_object, predicate=inspect.ismethod):
+                if 'test' in function_name:
+                    function_object()

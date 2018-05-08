@@ -72,7 +72,7 @@ class MSEWithSplitter(LossFunction):
 
     def __init__(self, label: GraphNode, predicted: GraphNode):
         super().__init__(label, predicted)
-        diff = Add(predicted, HadamardMult(Variable(-1), label))
+        diff = Add(predicted, HadamardMult(Variable(-1.0), label))
         splitter = Splitter(diff, 2)
         square = HadamardMult(splitter, splitter)
         mse = ReduceMean(square, 0)
