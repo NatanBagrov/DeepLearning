@@ -4,7 +4,7 @@ from unittest import TestCase
 from graph.UnaryOperations import ReduceMean, ReduceSum, ReduceSize, Transpose
 from graph.Variable import Variable
 from graph.BinaryOperations import Add, Multiply, HadamardMult
-from utils.LossFunctions import MSE
+from utils.LossFunctions import MSE, MSEWithSplitter
 import numpy as np
 from sklearn.metrics import mean_squared_error
 
@@ -153,6 +153,27 @@ class TestMSE(TestCase):
         np.testing.assert_allclose(y_true_variable.get_gradient(), mse_derivative_desired)
 
         # self.fail()
+
+    def test_splitter_forward(self):
+        y_true = np.array([[1], [2], [3], [4]])
+        y_predicted = np.array([[8], [7], [6], [5]])
+        mse_desired = mean_squared_error(y_true, y_predicted)
+        y_true_variable = Variable(y_true)
+        y_predicted_variable = Variable(y_predicted)
+        mse_node = MSEWithSplitter(y_true_variable, y_predicted_variable)
+        mse_actual = mse_node.forward()
+        np.testing.assert_allclose(mse_actual, mse_desired)
+
+    def test_splitter_backward(self):
+        y_true = np.array([[1], [2], [3], [4]])
+        y_predicted = np.array([[8], [7], [6], [5]])
+        mse_derivative_desired = 2.0 / y_true.shape[0] * (y_true - y_predicted)
+        y_true_variable = Variable(y_true)
+        y_predicted_variable = Variable(y_predicted)
+        mse_node = MSEWithSplitter(y_true_variable, y_predicted_variable)
+        mse_node.forward()
+        mse_node.backward()
+        np.testing.assert_allclose(y_true_variable.get_gradient(), mse_derivative_desired)
 
 
 class TestHadamardMult(TestCase):

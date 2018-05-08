@@ -2,8 +2,11 @@ from abc import abstractmethod
 
 import numpy as np
 
+from graph.BinaryOperations import Add, HadamardMult
 from graph.GraphNode import GraphNode
 from graph.Operation import Operation
+from graph.UnaryOperations import ReduceMean, Splitter
+from graph.Variable import Variable
 
 
 class LossFunction(Operation):
@@ -64,3 +67,23 @@ loss_name_to_class = {
     'cross-entropy': CrossEntropy
 }
 
+
+class MSEWithSplitter(LossFunction):
+
+    def __init__(self, label: GraphNode, predicted: GraphNode):
+        super().__init__(label, predicted)
+        diff = Add(predicted, HadamardMult(Variable(-1), label))
+        splitter = Splitter(diff, 2)
+        square = HadamardMult(splitter, splitter)
+        mse = ReduceMean(square, 0)
+        self._node = mse
+
+    def forward(self):
+        self._value = self._node.forward()
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        self._node.backward(self._gradient)
+
+    def _inner_reset(self):
+        self._node.reset()

@@ -105,3 +105,27 @@ class ReduceMean(ReductionOperation):
 
     def _inner_backward(self, grad=None):
         self._node.backward(self._gradient)
+
+
+class Splitter(UnaryOperation):
+
+    def __init__(self, node: GraphNode, split_size):
+        super().__init__(node)
+        self._split_size = split_size
+        self._curr_grad_count, self._curr_reset_count = 0, 0
+
+    def forward(self):
+        self._value = self._node.forward()
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        self._curr_grad_count += 1
+        if self._curr_grad_count == self._split_size:
+            self._node.backward(self._gradient)
+            self._curr_grad_count = 0
+
+    def _inner_reset(self):
+        self._curr_reset_count += 1
+        if self._curr_reset_count == self._split_size:
+            self._node.reset()
+            self._curr_reset_count = 0
