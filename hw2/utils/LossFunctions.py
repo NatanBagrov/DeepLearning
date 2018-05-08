@@ -40,7 +40,7 @@ class MSE(LossFunction):
         return self._value
 
     def _inner_backward(self, grad=None):
-        dl_dlabel = 2.0 * np.subtract(self._label.forward(), self._predicted.forward()) / self._label._value.size
+        dl_dlabel = 2.0 * np.subtract(self._label.get_value(), self._predicted.get_value()) / self._label.get_value().size
         dl_dpredicted = -dl_dlabel
         # multiplied by self._gradient just to be on the safe side and not to assume we are the last node.
         self._label.backward(self._gradient * dl_dlabel)

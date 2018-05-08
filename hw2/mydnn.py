@@ -10,8 +10,9 @@ from graph.BinaryOperations import Add, Multiply
 
 
 class mydnn:
-    def __init__(self, architecture, loss, weight_decay=0):
-        self._x_variable = Variable(None) # TODO: call it placeholder
+    def __init__(self, architecture: list, loss, weight_decay=0.0):
+        weight_decay = np.float64(weight_decay)
+        self._x_variable = Variable(None)  # TODO: call it placeholder
         self._y_variable = Variable(None)
         self._architecture, self._prediction_variable, regularization_cost = \
             mydnn._build_architecture_get_prediction_and_regularization_cost(
@@ -20,7 +21,8 @@ class mydnn:
                 self._x_variable
             )
         loss_class = loss_name_to_class[loss]
-        self._loss_variable = Add(loss_class(self._prediction_variable, self._y_variable), regularization_cost)
+        self._is_classification = isinstance(loss_class, CrossEntropy)
+        self._loss_variable = Add(loss_class(self._y_variable, self._prediction_variable), regularization_cost)
 
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, x_val=None, y_val=None):
         number_of_samples = x_train.shape[0]
@@ -37,6 +39,7 @@ class mydnn:
 
             seconds = timeit(lambda: self._do_epoch(x_train, y_train, batch_size, learning_rate), number=1)
 
+            # TODO: calculate average
             train_loss_and_accuracy = self.evaluate(x_train, y_train)
             train_validation_loss_accuracy = [
                 string.format(number)
@@ -82,19 +85,16 @@ class mydnn:
         loss = self._loss_variable.forward()
         return_list = [loss, ]
 
-        if self._is_classification():
-            accuracy = 0.0 # TODO:
+        if self._is_classification:
+            accuracy = 0.0  # TODO:
             return_list.append(accuracy)
 
         return return_list
 
-    def _is_classification(self):
-        return isinstance(self._loss, CrossEntropy)
-
     @staticmethod
     def _build_architecture_get_prediction_and_regularization_cost(architecture, weight_decay, current_input):
         architecture_built = list()
-        regularization_cost = Variable(0)
+        regularization_cost = Variable(0.0)
         weight_decay_variable = Variable(weight_decay)  # TODO: constant
 
         for layer_dictionary in architecture:
@@ -127,6 +127,7 @@ class mydnn:
         self._y_variable.set_value(y_batch)
 
         self._loss_variable.forward()
+        self._loss_variable.backward()
 
         for current_layer in self._architecture:
             current_layer.update_grad(learning_rate)

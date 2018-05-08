@@ -95,7 +95,7 @@ class ReduceMean(ReductionOperation):
     def __init__(self, node: GraphNode, axis=None):
         sum = ReduceSum(node, axis)
         size = ReduceSize(node, axis)
-        one_div_size = Divide(Variable(1), size)
+        one_div_size = Divide(Variable(1.0), size)
         res = HadamardMult(sum, one_div_size)
         super().__init__(res, axis)
 

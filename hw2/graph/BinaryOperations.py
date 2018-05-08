@@ -47,8 +47,8 @@ class Add(BinaryOperation):
 
     def _inner_backward(self, grad=None):
         # TODO: assuming broadcasting here, expect bugs
-        d_current_d_left = 1
-        d_current_d_right = 1
+        d_current_d_left = 1.0
+        d_current_d_right = 1.0
 
         self._do_backward(d_current_d_left, d_current_d_right)
 
@@ -58,7 +58,14 @@ class Multiply(BinaryOperation):
         super().__init__(left, right)
 
     def forward(self):
-        self._value = self._left.forward() @ self._right.forward()
+        left = self._left.forward()
+        right = self._right.forward()
+        if isinstance(left, float):
+            assert isinstance(right, float)
+
+            self._value = left * right
+        else:
+            self._value = left @ right
 
         return self._value
 
@@ -69,8 +76,15 @@ class Multiply(BinaryOperation):
         self._do_backward(d_current_d_left, d_current_d_right)
 
     def _do_backward(self, d_current_d_left, d_current_d_right):
-        self._left.backward(self._gradient @ np.transpose(d_current_d_left))
-        self._right.backward(np.transpose(d_current_d_right) @ self._gradient)
+        if isinstance(d_current_d_left, float):
+            self._left.backward(self._gradient * d_current_d_left)
+        else:
+            self._left.backward(self._gradient @ np.transpose(d_current_d_left))
+
+        if isinstance(d_current_d_right, float):
+            self._left.backward(self._gradient * d_current_d_right)
+        else:
+            self._right.backward(np.transpose(d_current_d_right) @ self._gradient)
 
 
 class HadamardMult(BinaryOperation):
@@ -101,6 +115,6 @@ class Divide(BinaryOperation):
     def _inner_backward(self, grad=None):
         nom = self._left.get_value()
         denom = self._right.get_value()
-        d_current_d_nom = 1 / denom
+        d_current_d_nom = 1.0 / denom
         d_current_d_denom = - (nom / (denom ** 2))
         self._do_backward(d_current_d_nom, d_current_d_denom)
