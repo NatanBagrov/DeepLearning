@@ -16,15 +16,15 @@ class LossFunction(Operation):
 
     @abstractmethod
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def _inner_backward(self, grad=None):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def _inner_reset(self):
-        pass
+        raise NotImplementedError()
 
 
 class MSE(LossFunction):
@@ -47,19 +47,19 @@ class MSE(LossFunction):
         self._predicted.backward(self._gradient * dl_dpredicted)
 
     def _inner_reset(self):
-        pass
+        raise NotImplementedError()
 
 
 class CrossEntropy(LossFunction):
     def __init__(self, label: GraphNode, predicted: GraphNode):
         super(CrossEntropy, self).__init__(label, predicted)
-        Log()
+        raise NotImplementedError()
 
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     def _inner_backward(self, grad=None):
-        pass
+        raise NotImplementedError()
 
 
 loss_name_to_class = {

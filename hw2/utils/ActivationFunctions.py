@@ -15,11 +15,11 @@ class ActivationFunction(Operation):
 
     @abstractmethod
     def _inner_backward(self, grad=None):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     def _inner_reset(self):
         self._node.reset()

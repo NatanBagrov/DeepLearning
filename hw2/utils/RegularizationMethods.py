@@ -14,11 +14,11 @@ class RegularizationMethod(Operation):
 
     @abstractmethod
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def _inner_backward(self, grad=None):
-        pass
+        raise NotImplementedError()
 
     def _inner_reset(self):
         self._node.reset()
@@ -28,6 +28,7 @@ class L2(RegularizationMethod):
 
     def forward(self):
         self._value = np.sum(self._node.forward() ** 2)
+
         return self._value
 
     def _inner_backward(self, grad=None):
@@ -38,6 +39,7 @@ class L1(RegularizationMethod):
 
     def forward(self):
         self._value = np.sum(np.abs(self._node.forward()))
+
         return self._value
 
     def _inner_backward(self, grad=None):

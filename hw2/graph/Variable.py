@@ -19,9 +19,6 @@ class Variable(GraphNode):
         if grad is None:
             self._gradient = 1.0
         else:
-            if isinstance(self._value, float) or 1 == self._value.size:
-                grad = np.sum(grad)
-
             self._gradient_sum += grad
             self._gradient += grad
 

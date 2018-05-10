@@ -12,7 +12,7 @@ class Operation(GraphNode):
 
     @abstractmethod
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     def backward(self, grad=None):
         if grad is None:
@@ -31,9 +31,9 @@ class Operation(GraphNode):
     @abstractmethod
     def _inner_backward(self, grad=None):
         # This should implement the backward specific logic
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def _inner_reset(self):
         # This should implement the reset specific logic
-        pass
+        raise NotImplementedError()

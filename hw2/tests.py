@@ -1,4 +1,4 @@
-from random import random
+from random import random, seed
 from unittest import TestCase
 
 from graph.UnaryOperations import ReduceMean, ReduceSum, ReduceSize, Transpose
@@ -11,6 +11,7 @@ from sklearn.metrics import mean_squared_error
 from utils.RegularizationMethods import L1, L2
 from FullyConnectedLayer import FullyConnectedLayer
 from utils.ActivationFunctions import Identity
+import tensorflow as tf
 
 
 class TestMultiply(TestCase):
@@ -431,12 +432,15 @@ class TestFC(TestCase):
         fc.backward(np.array([[6.0], [7.0], [8.0]]))
 
         dl_dw_actual = fc._w.get_gradient()
+        dl_dx_actual = x_variable.get_gradient()
         dl_dw_desired = np.array([[0 * 6 + 2 * 7 + 4 * 8], [1 * 6 + 3 * 7 + 5 * 8]])
+        dl_dx_desired = np.array([[w[0,0] * 6, w[1,0] * 6], [w[0,0] * 7, w[1,0] * 7], [w[0,0] * 8, w[1,0] * 8]])
 
         np.testing.assert_allclose(dl_dw_actual, dl_dw_desired)
+        np.testing.assert_allclose(dl_dx_actual, dl_dx_desired)
 
         dl_db_actual = fc._b.get_gradient()
-        dl_db_desired = np.array([[6 + 7 + 8]])
+        dl_db_desired = np.array([6 + 7 + 8])
 
         np.testing.assert_allclose(dl_db_actual, dl_db_desired)
 
@@ -470,6 +474,81 @@ class TestFC(TestCase):
 
 class TestMyDNN(TestCase):
     def test_one_layer_none_activation_none_regularization_mse(self):
+        from keras import layers, optimizers, Sequential
+
+        np.random.seed(42)
+
+        actual = mydnn([
+            {
+                'input': 2,
+                'output': 4,
+                'nonlinear': 'none',
+                'regularization': 'l2',
+            },
+            {
+                'input': 4,
+                'output': 1,
+                'nonlinear': 'none',
+                'regularization': 'l2',
+            }
+        ], 'MSE')
+
+        x = np.arange(6).reshape(3, 2)
+        y = np.array([[6], [7], [8]])
+
+        w1_before = actual._architecture[0]._w._value.copy()
+
+        def kernel_initializer1(shape, dtype=None):
+            w = w1_before
+            assert w.shape == shape
+
+            return w
+
+        b1_before = actual._architecture[0]._b._value.copy()
+
+        def bias_initializer1(shape, dtype=None):
+            b = b1_before
+            assert b.shape == shape
+
+            return b
+
+        w2_before = actual._architecture[1]._w._value.copy()
+
+        def kernel_initializer2(shape, dtype=None):
+            w = w2_before
+            assert w.shape == shape
+
+            return w
+
+        b2_before = actual._architecture[1]._b._value.copy()
+
+        def bias_initializer2(shape, dtype=None):
+            b = b2_before
+            assert b.shape == shape
+
+            return b
+
+        actual.fit(x, y, 1, x.shape[0], 0.01)
+
+        b1_actual = actual._architecture[0]._b._value
+
+
+        # np.random.seed(42)
+
+        # dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3, 1), b_before) - y) / x.shape[0]
+        # dl_db_actual1 = actual._architecture[0]._b.get_gradient()
+        # dl_db_actual2 = (b_before - b_actual) / 0.01
+        #
+        # np.testing.assert_allclose(dl_db_actual1, dl_db_desired)
+        # np.testing.assert_allclose(dl_db_actual2, dl_db_desired)
+
+        y_predictions = ((((x @ w1_before) + b1_before) @ w2_before) + b2_before)
+        dl_db_desired = 2.0 * np.sum((y_predictions - y) @ np.transpose(w2_before), axis=0) / x.shape[0]
+        db_db_actual = (b1_before - b1_actual) / 0.01
+
+        np.testing.assert_allclose(db_db_actual, dl_db_desired)
+
+    def test_two_layers_two_hidden_units_none_activation_none_regularization_mse(self):
         from keras import layers, optimizers, Sequential
 
         np.random.seed(42)
@@ -517,7 +596,7 @@ class TestMyDNN(TestCase):
 
         np.random.seed(42)
 
-        dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3, 1), b_before) - y) / x.shape[0]
+        dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3,1), b_before) - y) / x.shape[0]
         dl_db_actual1 = actual._architecture[0]._b.get_gradient()
         dl_db_actual2 = (b_before - b_actual) / 0.01
 
@@ -526,6 +605,178 @@ class TestMyDNN(TestCase):
 
         np.testing.assert_allclose(b_actual, b_desired)
         np.testing.assert_allclose(w_actual, w_desired)
+
+    def test_one_layer_relu_activation_none_regularization_mse(self):
+        from keras import layers, optimizers, Sequential
+
+        np.random.seed(42)
+
+        actual = mydnn([
+            {
+                'input': 2,
+                'output': 1,
+                'nonlinear': 'relu',
+                'regularization': 'l2',
+            }
+        ], 'MSE')
+
+        x = np.random.normal(size=(3, 2))
+        y = np.random.normal(size=(3,1))
+
+        w_before = actual._architecture[0]._w._value.copy()
+
+        def kernel_initializer(shape, dtype=None):
+            w = w_before
+            assert w.shape == shape
+
+            return w
+
+        b_before = actual._architecture[0]._b._value.copy()
+
+        def bias_initializer(shape, dtype=None):
+            b = b_before
+            assert b.shape == shape
+
+            return b
+
+        sgd = optimizers.SGD()
+        desired = Sequential()
+        desired.add(layers.Dense(1, activation='relu',
+                                 kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+                                 input_shape=(x.shape[1],)))
+        desired.compile(sgd, 'MSE')
+
+        desired.fit(x, y, batch_size=x.shape[0])
+        actual.fit(x, y, 1, x.shape[0], 0.01)
+
+        w_desired, b_desired = desired.get_weights()
+        w_actual = actual._architecture[0]._w._value
+        b_actual = actual._architecture[0]._b._value
+
+        np.random.seed(42)
+
+        #dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3,1), b_before) - y) / x.shape[0]
+        dl_db_actual1 = actual._architecture[0]._b.get_gradient()
+        dl_db_actual2 = (b_before - b_actual) / 0.01
+
+        # np.testing.assert_allclose(dl_db_actual1, dl_db_desired)
+        # np.testing.assert_allclose(dl_db_actual2, dl_db_desired)
+
+        np.testing.assert_allclose(b_actual, b_desired)
+        np.testing.assert_allclose(w_actual, w_desired)
+
+    def test_one_layer_sigmoid_activation_none_regularization_mse(self):
+        from keras import layers, optimizers, Sequential
+
+        np.random.seed(42)
+
+        actual = mydnn([
+            {
+                'input': 2,
+                'output': 1,
+                'nonlinear': 'sigmoid',
+                'regularization': 'l2',
+            }
+        ], 'MSE')
+
+        x = np.random.normal(size=(3, 2))
+        y = np.random.normal(size=(3,1))
+
+        w_before = actual._architecture[0]._w._value.copy()
+
+        def kernel_initializer(shape, dtype=None):
+            w = w_before
+            assert w.shape == shape
+
+            return w
+
+        b_before = actual._architecture[0]._b._value.copy()
+
+        def bias_initializer(shape, dtype=None):
+            b = b_before
+            assert b.shape == shape
+
+            return b
+
+        sgd = optimizers.SGD()
+        desired = Sequential()
+        desired.add(layers.Dense(1, activation='sigmoid',
+                                 kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+                                 input_shape=(x.shape[1],)))
+        desired.compile(sgd, 'MSE')
+
+        desired.fit(x, y, batch_size=x.shape[0])
+        actual.fit(x, y, 1, x.shape[0], 0.01)
+
+        w_desired, b_desired = desired.get_weights()
+        w_actual = actual._architecture[0]._w._value
+        b_actual = actual._architecture[0]._b._value
+
+        np.random.seed(42)
+
+        np.testing.assert_allclose(b_actual, b_desired, rtol=1e-7, atol=1e-9)
+        np.testing.assert_allclose(w_actual, w_desired, rtol=1e-7, atol=1e-9)
+
+    def test_one_layer_softmax_activation_none_regularization_mse(self):
+        self.fail()
+
+    def test_one_layer_none_activation_l2_regularization_mse(self):
+        from keras import layers, optimizers, Sequential, regularizers
+
+        np.random.seed(42)
+
+        weight_decay = 10.0
+
+        actual = mydnn([
+            {
+                'input': 2,
+                'output': 1,
+                'nonlinear': 'none',
+                'regularization': 'l2',
+            }
+        ], 'MSE', weight_decay=weight_decay)
+
+        x = np.arange(6).reshape(3, 2)
+        y = np.array([[6], [7], [8]])
+
+        w_before = actual._architecture[0]._w._value.copy()
+
+        def kernel_initializer(shape, dtype=None):
+            w = w_before
+            assert w.shape == shape
+
+            return w
+
+        b_before = actual._architecture[0]._b._value.copy()
+
+        def bias_initializer(shape, dtype=None):
+            b = b_before
+            assert b.shape == shape
+
+            return b
+
+        sgd = optimizers.SGD()
+        desired = Sequential()
+        desired.add(layers.Dense(1, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+                                 input_shape=(x.shape[1],), kernel_regularizer=regularizers.l2(weight_decay)))
+        desired.compile(sgd, 'MSE')
+
+        desired.fit(x, y, batch_size=x.shape[0])
+        actual.fit(x, y, 1, x.shape[0], 0.01)
+
+        w_desired, b_desired = desired.get_weights()
+        w_actual = actual._architecture[0]._w._value
+        b_actual = actual._architecture[0]._b._value
+
+        dl_dw_desired2 = 2.0 * (np.transpose(x) @ (x @ w_before + b_before - y) / x.shape[0] + weight_decay * w_before)
+        dl_dw_desired1 = (w_before - w_desired) / 0.01
+        dl_dw_actual1 = (w_before - w_actual) / 0.01
+        dl_dw_actual2 = actual._architecture[0]._w.get_gradient()
+
+        np.testing.assert_allclose(dl_dw_actual1, dl_dw_desired1, atol=1e-5)
+        np.testing.assert_allclose(dl_dw_actual2, dl_dw_desired2, atol=1e-5)
+        np.testing.assert_allclose(b_actual, b_desired)
+        np.testing.assert_allclose(w_actual, w_desired, atol=1e-5)
 
 
 if "__main__" == __name__:

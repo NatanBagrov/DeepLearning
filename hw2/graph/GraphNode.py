@@ -10,12 +10,12 @@ class GraphNode:
 
     @abstractmethod
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def backward(self, grads=None):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def reset(self):
-        pass
+        raise NotImplementedError()

@@ -52,6 +52,16 @@ class Add(BinaryOperation):
 
         self._do_backward(d_current_d_left, d_current_d_right)
 
+    def _do_backward(self, d_current_d_left, d_current_d_right):
+        def get_dimensions_number(x):
+            return 1 if isinstance(x, float) else len(x.shape)
+
+        extra_dimensions_left = get_dimensions_number(self.get_value()) - get_dimensions_number(self._left.get_value())
+        extra_dimensions_right = get_dimensions_number(self.get_value()) - get_dimensions_number(self._right.get_value())
+
+        self._left.backward(np.sum(self._gradient, axis=tuple(range(extra_dimensions_left))) * d_current_d_left)
+        self._right.backward(np.sum(self._gradient, axis=tuple(range(extra_dimensions_right))) * d_current_d_right)
+
 
 class Multiply(BinaryOperation):
     def __init__(self, left: GraphNode, right: GraphNode):
@@ -82,7 +92,7 @@ class Multiply(BinaryOperation):
             self._left.backward(self._gradient @ np.transpose(d_current_d_left))
 
         if isinstance(d_current_d_right, float):
-            self._left.backward(self._gradient * d_current_d_right)
+            self._right.backward(self._gradient * d_current_d_right)
         else:
             self._right.backward(np.transpose(d_current_d_right) @ self._gradient)
 

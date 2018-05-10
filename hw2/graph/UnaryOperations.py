@@ -18,11 +18,11 @@ class UnaryOperation(Operation):
 
     @abstractmethod
     def forward(self):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def _inner_backward(self, grad=None):
-        pass
+        raise NotImplementedError()
 
     def _inner_reset(self):
         self._node.reset()
@@ -54,7 +54,7 @@ class ReductionOperation(UnaryOperation):
 
     @abstractmethod
     def _inner_backward(self, grad=None):
-        pass
+        raise NotImplementedError()
 
     def _inner_reset(self):
         self._node.reset()
