@@ -58,16 +58,8 @@ class Softmax(ActivationFunction):
         return self._value
 
     def _inner_backward(self, grad=None):
-        # TODO: vectorize it, probably assuming that afterwards goes CE
-        gradient_by_node = np.zeros(self._node.get_value().shape)
-        number_of_samples, number_of_classes = self._value.shape
-
-        for sample_index in range(number_of_samples):
-            gradient_by_node[sample_index, :] = (self._gradient[sample_index, :] * self._value[sample_index, :]) @ \
-                                                (np.eye(number_of_classes) -
-                                                 np.repeat(self._value[sample_index, :].reshape(1, number_of_classes),
-                                                           number_of_classes, axis=0))
-
+        weighted_value = self._gradient * self.get_value()
+        gradient_by_node = weighted_value - np.transpose(np.transpose(self.get_value()) * np.sum(weighted_value, axis=1))
         self._node.backward(gradient_by_node)
 
 
