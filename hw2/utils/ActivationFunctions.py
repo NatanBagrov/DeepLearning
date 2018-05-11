@@ -53,14 +53,22 @@ class Softmax(ActivationFunction):
     def forward(self):
         x = self._node.forward()
         # numerically stable softmax
-        e_x = np.exp(x - np.max(x))
-        self._value = e_x / e_x.sum()
+        e_x = np.exp((x.T - np.max(x, axis=1)).T)
+        self._value = (e_x.T / e_x.sum(axis=1)).T
         return self._value
 
     def _inner_backward(self, grad=None):
-        # TODO: derivative of x (np.array) returns a martix, shouldnt it return an array?
-        s = self._node.get_value().reshape(-1, 1)
-        self._node.backward(self._gradient * (np.diagflat(s) - np.dot(s, s.T)))
+        # TODO: vectorize it, probably assuming that afterwards goes CE
+        gradient_by_node = np.zeros(self._node.get_value().shape)
+        number_of_samples, number_of_classes = self._value.shape
+
+        for sample_index in range(number_of_samples):
+            gradient_by_node[sample_index, :] = (self._gradient[sample_index, :] * self._value[sample_index, :]) @ \
+                                                (np.eye(number_of_classes) -
+                                                 np.repeat(self._value[sample_index, :].reshape(1, number_of_classes),
+                                                           number_of_classes, axis=0))
+
+        self._node.backward(gradient_by_node)
 
 
 class Identity(ActivationFunction):

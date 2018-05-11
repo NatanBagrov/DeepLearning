@@ -88,7 +88,13 @@ class ReduceSum(ReductionOperation):
         return self._value
 
     def _inner_backward(self, grad=None):
-        self._node.backward(np.full(self._node.get_value().shape, self._gradient))
+        needed_shape = self._node.get_value().shape
+        new_shape = [1 if self._axis is None or self._axis == dimension else value for dimension, value in enumerate(needed_shape)]
+        reps = [value if self._axis is None or self._axis == dimension else 1 for dimension, value in enumerate(needed_shape)]
+        d_current_d_node = np.tile(np.reshape(self._gradient, new_shape), reps)
+        assert d_current_d_node.shape == needed_shape
+
+        self._node.backward(d_current_d_node)
 
 
 class ReduceMean(ReductionOperation):
@@ -116,6 +122,7 @@ class Splitter(UnaryOperation):
 
     def forward(self):
         self._value = self._node.forward()
+
         return self._value
 
     def _inner_backward(self, grad=None):
@@ -129,3 +136,17 @@ class Splitter(UnaryOperation):
         if self._curr_reset_count == self._split_size:
             self._node.reset()
             self._curr_reset_count = 0
+
+
+class Log(UnaryOperation):
+    def __init__(self, node: GraphNode):
+        super().__init__(node)
+
+    def forward(self):
+        self._value = np.log(self._node.forward())
+
+        return self._value
+
+    def _inner_backward(self, grad=None):
+        self._node.backward((1.0 / self._node.get_value()) * grad)
+

@@ -5,7 +5,7 @@ import numpy as np
 from graph.BinaryOperations import Add, HadamardMult
 from graph.GraphNode import GraphNode
 from graph.Operation import Operation
-from graph.UnaryOperations import ReduceMean, Splitter
+from graph.UnaryOperations import ReduceMean, Splitter, Log, ReduceSum
 from graph.Variable import Variable
 
 
@@ -53,13 +53,15 @@ class MSE(LossFunction):
 class CrossEntropy(LossFunction):
     def __init__(self, label: GraphNode, predicted: GraphNode):
         super(CrossEntropy, self).__init__(label, predicted)
-        raise NotImplementedError()
+        self._node = HadamardMult(Variable(-1.0), ReduceMean(ReduceSum(HadamardMult(label, Log(predicted)), axis=1)))
 
     def forward(self):
-        raise NotImplementedError()
+        self._value = self._node.forward()
+
+        return self._value
 
     def _inner_backward(self, grad=None):
-        raise NotImplementedError()
+        self._node.backward(grad)
 
 
 loss_name_to_class = {
