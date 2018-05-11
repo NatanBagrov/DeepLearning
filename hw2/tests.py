@@ -12,7 +12,7 @@ from utils.RegularizationMethods import L1, L2
 from FullyConnectedLayer import FullyConnectedLayer
 from utils.ActivationFunctions import Identity, Softmax
 import tensorflow as tf
-from keras import layers, optimizers, Sequential, regularizers, losses
+from keras import layers, optimizers, Sequential, regularizers, losses, metrics
 
 
 class TestMultiply(TestCase):
@@ -705,10 +705,8 @@ class TestMyDNN(TestCase):
         np.random.seed(42)
 
         dl_db_desired = 2.0 * np.sum(x @ w_before + np.full((3,1), b_before) - y) / x.shape[0]
-        dl_db_actual1 = actual._architecture[0]._b.get_gradient()
         dl_db_actual2 = (b_before - b_actual) / 0.01
 
-        np.testing.assert_allclose(dl_db_actual1, dl_db_desired)
         np.testing.assert_allclose(dl_db_actual2, dl_db_desired)
 
         np.testing.assert_allclose(b_actual, b_desired)
@@ -822,7 +820,7 @@ class TestMyDNN(TestCase):
         np.testing.assert_allclose(w_actual, w_desired, rtol=1e-7, atol=1e-9)
 
     def test_one_layer_softmax_activation_none_regularization_mse(self):
-        self._compare_models([{'input': 4, 'output': 3, 'nonlinear': 'sot-max', 'regularization': 'l2'}], 'cross-entropy')
+        TestMyDNN._compare_models([{'input': 4, 'output': 3, 'nonlinear': 'sot-max', 'regularization': 'l2'}], 'cross-entropy')
 
     def test_one_layer_none_activation_l2_regularization_mse(self):
         np.random.seed(42)
@@ -873,10 +871,9 @@ class TestMyDNN(TestCase):
         dl_dw_desired2 = 2.0 * (np.transpose(x) @ (x @ w_before + b_before - y) / x.shape[0] + weight_decay * w_before)
         dl_dw_desired1 = (w_before - w_desired) / 0.01
         dl_dw_actual1 = (w_before - w_actual) / 0.01
-        dl_dw_actual2 = actual._architecture[0]._w.get_gradient()
 
         np.testing.assert_allclose(dl_dw_actual1, dl_dw_desired1, atol=1e-5)
-        np.testing.assert_allclose(dl_dw_actual2, dl_dw_desired2, atol=1e-5)
+        np.testing.assert_allclose(dl_dw_actual1, dl_dw_desired2, atol=1e-5)
         np.testing.assert_allclose(b_actual, b_desired)
         np.testing.assert_allclose(w_actual, w_desired, atol=1e-5)
 
@@ -943,10 +940,12 @@ class TestMyDNN(TestCase):
         if 'MSE' == loss:
             y = np.random.rand(number_of_samples, 1)
             keras_loss = 'MSE'
+            keras_metrics = None
         elif 'cross-entropy' == loss:
             number_of_classes = architecture[-1]['output']
             y = np.eye(number_of_classes)[np.random.choice(number_of_classes, size=number_of_samples)]
             keras_loss = losses.categorical_crossentropy
+            keras_metrics = [metrics.categorical_accuracy]
         else:
             assert False, loss
 
@@ -989,7 +988,7 @@ class TestMyDNN(TestCase):
                                      kernel_regularizer=kernel_regularizer,
                                      input_shape=(layer['input'],)))
 
-        desired.compile(sgd, keras_loss)
+        desired.compile(sgd, keras_loss, metrics=keras_metrics)
 
         desired.fit(x, y, batch_size=x.shape[0], epochs=1)
         actual.fit(x, y, epochs, x.shape[0], learning_rate)
@@ -1003,6 +1002,68 @@ class TestMyDNN(TestCase):
 
         for weight_actual, weight_desired in zip(weights_and_biases_actual, weights_and_biases_desired):
             np.testing.assert_allclose(weight_actual, weight_desired, atol=1e-5)
+
+        y_predicted_actual = actual.predict(x, batch_size=number_of_samples)
+        y_predicted_desired = desired.predict(x, batch_size=number_of_samples)
+
+        np.testing.assert_allclose(y_predicted_actual, y_predicted_desired)
+
+        if 'MSE' == loss:
+            loss_actual = actual.evaluate(x, y, batch_size=number_of_samples)
+            loss_desired = desired.evaluate(x, y, batch_size=number_of_samples)
+
+            np.testing.assert_allclose(loss_actual, loss_desired)
+        else:
+            loss_actual, accuracy_actual = actual.evaluate(x, y, batch_size=number_of_samples)
+            loss_desired, accuracy_desired = desired.evaluate(x, y, batch_size=number_of_samples)
+
+            np.testing.assert_allclose(loss_actual, loss_desired)
+            np.testing.assert_allclose(accuracy_actual, accuracy_desired)
+
+    def test_1_layer_relu_no_regularization_mse_2_epochs(self):
+        TestMyDNN._compare_models([
+            {
+                'input': 4,
+                'output': 1,
+                'nonlinear': 'relu',
+                'regularization': 'l2'
+            }
+                ],
+            'MSE',
+            epochs=2
+        )
+
+    def test_1_layer_sm_no_regularization_ce_2_epochs(self):
+        TestMyDNN._compare_models([
+            {
+                'input': 4,
+                'output': 3,
+                'nonlinear': 'sot-max',
+                'regularization': 'l2'
+            }
+                ],
+            'cross-entropy',
+            epochs=2
+        )
+
+    def test_2_layers_nelu_soft_max_none_regularization_ce_2_epochs(self):
+        TestMyDNN._compare_models([
+            {
+                'input': 4,
+                'output': 3,
+                'nonlinear': 'relu',
+                'regularization': 'l2'
+            },
+            {
+                'input': 3,
+                'output': 5,
+                'nonlinear': 'sot-max',
+                'regularization': 'l2'
+            }
+        ],
+            'cross-entropy',
+            epochs=2
+        )
 
 
 if "__main__" == __name__:

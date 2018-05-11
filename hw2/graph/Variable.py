@@ -24,6 +24,7 @@ class Variable(GraphNode):
 
     def reset(self):
         self._gradient = 0
+        self._gradient_sum = 0
 
     def update_grad(self, eta):
         self._value = self._value - 1.0 * eta * self._gradient_sum

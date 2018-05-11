@@ -11,7 +11,7 @@ from graph.Variable import Variable
 
 class LossFunction(Operation):
 
-    def __init__(self, n1: GraphNode, n2: GraphNode):
+    def __init__(self, label: GraphNode, predicted: GraphNode):
         super().__init__()
 
     @abstractmethod
@@ -47,7 +47,8 @@ class MSE(LossFunction):
         self._predicted.backward(self._gradient * dl_dpredicted)
 
     def _inner_reset(self):
-        raise NotImplementedError()
+        self._label.reset()
+        self._predicted.reset()
 
 
 class CrossEntropy(LossFunction):
@@ -62,6 +63,9 @@ class CrossEntropy(LossFunction):
 
     def _inner_backward(self, grad=None):
         self._node.backward(grad)
+
+    def _inner_reset(self):
+        self._node.reset()
 
 
 loss_name_to_class = {

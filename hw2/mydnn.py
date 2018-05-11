@@ -21,7 +21,7 @@ class mydnn:
                 self._x_variable
             )
         loss_class = loss_name_to_class[loss]
-        self._is_classification = isinstance(loss_class, CrossEntropy)
+        self._is_classification = loss_class == CrossEntropy
         self._loss_variable = Add(loss_class(self._y_variable, self._prediction_variable), regularization_cost)
 
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, x_val=None, y_val=None):
@@ -29,6 +29,8 @@ class mydnn:
 
         assert x_train.shape[0] == number_of_samples
         assert y_train.shape[0] == number_of_samples
+
+        history = list()
 
         for epoch_index in range(epochs):
             permutation = np.random.permutation(number_of_samples)
@@ -47,17 +49,28 @@ class mydnn:
                 for string, number in zip(['loss: {:.1f}', 'acc: {:.1f}'], train_loss_and_accuracy)
             ]
 
+            history_entry = {
+                'epoch': 1 + epoch_index,
+                'seconds': seconds,
+            }
+            history_entry.update(dict(zip(['train loss', 'train accuracy'], train_loss_and_accuracy)))
+
             if x_val is not None and y_val is not None:
                 validation_loss_and_accuracy = self.evaluate(x_train, y_train)
                 train_validation_loss_accuracy.extend([
                     string.format(number)
                     for string, number in zip(['val_loss: {:.1f}', 'val_acc: {:.1f}'], validation_loss_and_accuracy)
                 ])
+                history_entry.update(dict(zip(['validation loss', 'validation accuracy'], validation_loss_and_accuracy)))
 
             print(' - '.join(['Epoch {}/{}'.format(1 + epoch_index, epochs),  # TODO: is it one based?
                               '{} seconds'.format(seconds),]
                              + train_validation_loss_accuracy
             ))
+
+            history.append(history_entry)
+
+        return history
 
     def predict(self, X, batch_size=None):
         number_of_samples = X.shape[0]
@@ -76,17 +89,34 @@ class mydnn:
 
         assert y.shape[0] == number_of_samples
 
-        # TODO: should we make argmax in classification? (if yes fix evaluate)
         return y
 
     def evaluate(self, X, y, batch_size=None):
-        self._x_variable.set_value(X)
-        self._y_variable.set_value(y)
-        loss = self._loss_variable.forward()
-        return_list = [loss, ]
+        number_of_samples = X.shape[0]
+
+        if batch_size is None:
+            batch_size = number_of_samples
+
+        total_loss = 0.0
+        total_correctly_predicted = 0
+
+        for batch_offset in range(0, number_of_samples, batch_size):
+            actual_batch_size = min(batch_offset + batch_size, number_of_samples)
+            self._x_variable.set_value(X[batch_offset:actual_batch_size])
+            self._y_variable.set_value(y[batch_offset:actual_batch_size])
+            loss = self._loss_variable.forward()
+            total_loss += loss * actual_batch_size
+
+            if self._is_classification:
+                true_classes = np.argmax(y, axis=1)
+                predicted_classes = np.argmax(self._prediction_variable.get_value(), axis=1)
+                correctly_predicted = np.count_nonzero(true_classes == predicted_classes)
+                total_correctly_predicted += correctly_predicted
+
+        return_list = [total_loss / number_of_samples, ]
 
         if self._is_classification:
-            accuracy = 0.0  # TODO:
+            accuracy = 1.0 * total_correctly_predicted / number_of_samples
             return_list.append(accuracy)
 
         return return_list
@@ -113,22 +143,29 @@ class mydnn:
 
     def _do_epoch(self, x_train, y_train, batch_size, learning_rate):
         number_of_samples = x_train.shape[0]
+        total_loss = 0.0
 
         for batch_offset in range(0, number_of_samples, batch_size):
-            # Python does not mind positive overflows
             # Other dimensions are left
-            x_batch = x_train[batch_offset:batch_offset+batch_size]
-            y_batch = y_train[batch_offset:batch_offset+batch_size]
+            actual_batch_size = min(number_of_samples, batch_offset + batch_size)
+            x_batch = x_train[batch_offset:actual_batch_size]
+            y_batch = y_train[batch_offset:actual_batch_size]
 
-            self._do_iteration(x_batch, y_batch, learning_rate)
+            total_loss += self._do_iteration(x_batch, y_batch, learning_rate) * actual_batch_size
+
+        return total_loss / number_of_samples
 
     def _do_iteration(self, x_batch, y_batch, learning_rate):
         self._x_variable.set_value(x_batch)
         self._y_variable.set_value(y_batch)
 
-        self._loss_variable.forward()
+        loss = self._loss_variable.forward()
         self._loss_variable.backward()
 
         for current_layer in self._architecture:
             current_layer.update_grad(learning_rate)
+
+        self._loss_variable.reset()
+
+        return loss
 
