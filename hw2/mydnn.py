@@ -41,6 +41,11 @@ class mydnn:
 
             seconds = timeit(lambda: self._do_epoch(x_train, y_train, batch_size, learning_rate), number=1)
 
+            history_entry = {
+                'epoch': 1 + epoch_index,
+                'seconds': seconds,
+            }
+
             # TODO: calculate average
             train_loss_and_accuracy = self.evaluate(x_train, y_train)
             train_validation_loss_accuracy = [
@@ -49,14 +54,10 @@ class mydnn:
                 for string, number in zip(['loss: {:.1f}', 'acc: {:.1f}'], train_loss_and_accuracy)
             ]
 
-            history_entry = {
-                'epoch': 1 + epoch_index,
-                'seconds': seconds,
-            }
             history_entry.update(dict(zip(['train loss', 'train accuracy'], train_loss_and_accuracy)))
 
             if x_val is not None and y_val is not None:
-                validation_loss_and_accuracy = self.evaluate(x_train, y_train)
+                validation_loss_and_accuracy = self.evaluate(x_val, y_val)
                 train_validation_loss_accuracy.extend([
                     string.format(number)
                     for string, number in zip(['val_loss: {:.1f}', 'val_acc: {:.1f}'], validation_loss_and_accuracy)
@@ -64,7 +65,7 @@ class mydnn:
                 history_entry.update(dict(zip(['validation loss', 'validation accuracy'], validation_loss_and_accuracy)))
 
             print(' - '.join(['Epoch {}/{}'.format(1 + epoch_index, epochs),  # TODO: is it one based?
-                              '{} seconds'.format(seconds),]
+                              '{:.0f} seconds'.format(seconds),] # TODO: how many digits after second
                              + train_validation_loss_accuracy
             ))
 

@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=None):
+def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=None, show=False):
     if title is None:
-        title='{} epochs with batch size {}'.format(len(history), batch_size)
+        title = '{} epochs with batch size {}'.format(len(history), batch_size)
 
     is_classification = 'train accuracy' in history[0]
     has_validation = 'validation loss' in history[0]
@@ -20,28 +20,30 @@ def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, bat
 
     plt.figure()
     train_loss_handle = plot_entry('train loss')
-    handles = [train_loss_handle,]
+    loss_handles = [train_loss_handle, ]
 
     if has_validation:
         validation_loss_handle = plot_entry('validation loss')
-        handles.append(validation_loss_handle)
+        loss_handles.append(validation_loss_handle)
 
     plt.xlabel('Iterations')
     plt.ylabel('Loss')
+    plt.legend(handles=loss_handles)
     plt.title(title)
 
     if is_classification:
         plt.figure()
         train_accuracy_handle = plot_entry('train accuracy')
-        handles.append(train_accuracy_handle)
+        accuracy_handles = [train_accuracy_handle, ]
 
         if has_validation:
             validation_accuracy_handle = plot_entry('validation accuracy')
-            handles.append(validation_accuracy_handle)
+            accuracy_handles.append(validation_accuracy_handle)
 
         plt.xlabel('Iterations')
         plt.ylabel('Loss')
         plt.title(title)
+        plt.legend(handles=accuracy_handles)
 
-    plt.legend(handles=handles)
-    plt.show()
+    if show:
+        plt.show()

@@ -33,9 +33,8 @@ if "__main__" == __name__:
         },
     ]
 
-    dnn = mydnn(architecture, 'cross-entropy')
-
     for batch_size in (128, 1024, 60000):
-        history = dnn.fit(train_x, train_y, 3, batch_size, 5e-4, x_val=validation_x, y_val=validation_y)
-
+        print('Batch size is {}'.format(batch_size))
+        dnn = mydnn(architecture, 'cross-entropy')
+        history = dnn.fit(train_x, train_y, 100, batch_size, 5e-4, x_val=validation_x, y_val=validation_y)
         plot_iteration_to_loss_accuracy_from_history(history, train_x.shape[0], batch_size, 'Batch size is {}'.format(batch_size))
