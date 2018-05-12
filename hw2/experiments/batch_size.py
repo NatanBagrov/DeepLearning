@@ -6,7 +6,16 @@ import logging
 number_of_classes = 10
 
 if "__main__" == __name__:
-    logging.getLogger('').setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)-5s %(name)-5s %(threadName)-5s %(filename)s:%(lineno)s - %(funcName)s() '
+                               '%(''levelname)s : %(message)s',
+                        datefmt="%H:%M:%S")
+    fh = logging.FileHandler('logs/batch_size.log')
+    ch = logging.StreamHandler()
+    logger = logging.getLogger()
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    logger.setLevel(logging.DEBUG)
 
     # Load data
     train_set, validation_set, test_set = get_data()
@@ -21,9 +30,9 @@ if "__main__" == __name__:
     validation_y = array_to_one_hot(validation_y, number_of_classes=number_of_classes)
     test_y = array_to_one_hot(test_y, number_of_classes=number_of_classes)
 
-    logging.info('Train shape {} mean {} std {}'.format(train_x.shape, np.mean(train_x), np.std(train_x)))
-    logging.info('Validation shape {} mean {} std {}. 30 examples is {} part'.format(validation_x.shape, np.mean(validation_x), np.std(validation_x), 30 / validation_x.shape[0]))
-    logging.info('Test shape {} mean {} std {}'.format(test_x.shape, np.mean(test_x), np.std(test_x)))
+    logger.info('Train shape {} mean {} std {}'.format(train_x.shape, np.mean(train_x), np.std(train_x)))
+    logger.info('Validation shape {} mean {} std {}. 30 examples is {} part'.format(validation_x.shape, np.mean(validation_x), np.std(validation_x), 30 / validation_x.shape[0]))
+    logger.info('Test shape {} mean {} std {}'.format(test_x.shape, np.mean(test_x), np.std(test_x)))
 
     architecture = [
         {
@@ -40,19 +49,25 @@ if "__main__" == __name__:
         },
     ]
 
+    lr = 0.01
     batch_sizes = (128, 1024, 60000)
     time_per_epoch = list()
     best_validation_accuracy = list()
 
     for current_batch_size in batch_sizes:
-        print('Batch size is {}'.format(current_batch_size))
+        logger.info('Batch size is {}'.format(current_batch_size))
         dnn = mydnn(architecture, 'cross-entropy')
-        history = dnn.fit(train_x, train_y, 100, current_batch_size, 0.01, x_val=validation_x, y_val=validation_y)
-        plot_iteration_to_loss_accuracy_from_history(history, train_x.shape[0], current_batch_size, 'Batch size is {}'.format(current_batch_size))
+        history = dnn.fit(train_x, train_y, 100, current_batch_size, lr, x_val=validation_x, y_val=validation_y)
+        plot_iteration_to_loss_accuracy_from_history(history, train_x.shape[0], current_batch_size,
+                                                     'Batch size is {} with learning rate of {}'.format(
+                                                         current_batch_size,
+                                                         lr))
         average_time = sum((history_entry['seconds'] for history_entry in history)) / len(history)
-        print('Average time {} seconds per epoch'.format(average_time))
+        logger.info('Average time {} seconds per epoch'.format(average_time))
         time_per_epoch.append(average_time)
-        best_validation_accuracy.append(max([history_entry['validation accuracy'] for history_entry in history]))
+        best_accuracy = max([history_entry['validation accuracy'] for history_entry in history])
+        logger.info('Best validation accuracy was {}'.format(best_accuracy))
+        best_validation_accuracy.append(best_accuracy)
 
     plt.figure()
     plt.plot(batch_sizes, time_per_epoch)
