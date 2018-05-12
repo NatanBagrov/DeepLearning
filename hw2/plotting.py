@@ -1,10 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
-
-def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=None, show=False):
+def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=None,
+                                                 show=False, close_figures=True, save_directory='graphs'):
     if title is None:
         title = '{} epochs with batch size {}'.format(len(history), batch_size)
+
+    if not os.path.isdir(save_directory):
+        os.makedirs(save_directory)
 
     is_classification = 'train accuracy' in history[0]
     has_validation = 'validation loss' in history[0]
@@ -30,6 +34,10 @@ def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, bat
     plt.ylabel('Loss')
     plt.legend(handles=loss_handles)
     plt.title(title)
+    plt.savefig(os.path.join(save_directory, '{} loss.png'.format(title)))
+
+    if close_figures:
+        plt.close()
 
     if is_classification:
         plt.figure()
@@ -43,7 +51,9 @@ def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, bat
         plt.xlabel('Iterations')
         plt.ylabel('Loss')
         plt.title(title)
-        plt.legend(handles=accuracy_handles)
+        plt.legend(handles=accuracy_handles, loc='upper left')
+        plt.savefig(os.path.join(save_directory, '{} accuracy.png'.format(title)))
+        plt.close()
 
     if show:
         plt.show()
