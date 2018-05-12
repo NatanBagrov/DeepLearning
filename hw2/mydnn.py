@@ -105,7 +105,7 @@ class mydnn:
             actual_batch_size = min(batch_offset + batch_size, number_of_samples)
             self._x_variable.set_value(X[batch_offset:actual_batch_size])
             self._y_variable.set_value(y[batch_offset:actual_batch_size])
-            loss = self._loss_variable.forward()
+            loss = self._loss_variable.forward()  # TODO: should I include regularization
             total_loss += loss * actual_batch_size
 
             if self._is_classification:
@@ -127,8 +127,14 @@ class mydnn:
         architecture_built = list()
         regularization_cost = Variable(0.0)
         weight_decay_variable = Variable(weight_decay)  # TODO: constant
+        previous_layer_output = architecture[0]['input']
 
         for layer_dictionary in architecture:
+            assert previous_layer_output == layer_dictionary["input"], \
+                'Inconsistent architecture: can not feed {} outputs to {} inputs'.format(
+                    previous_layer_output,
+                    layer_dictionary['input']
+                )
             activation_function = activation_function_name_to_class[layer_dictionary["nonlinear"]]
             regularization_method = regularization_method_name_to_class[layer_dictionary["regularization"]]
             layer = FullyConnectedLayer(layer_dictionary["input"], layer_dictionary["output"],
@@ -136,9 +142,9 @@ class mydnn:
                                         current_input)
             regularization_cost = Add(regularization_cost,
                                       Multiply(weight_decay_variable, regularization_method(layer.get_weight())))
-
             architecture_built.append(layer)
             current_input = layer
+            previous_layer_output = layer_dictionary['output']
 
         return architecture_built, current_input, regularization_cost
 
