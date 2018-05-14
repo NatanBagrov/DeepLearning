@@ -49,7 +49,7 @@ def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, bat
             accuracy_handles.append(validation_accuracy_handle)
 
         plt.xlabel('Iterations')
-        plt.ylabel('Loss')
+        plt.ylabel('Accuracy')
         plt.title(title)
         plt.legend(handles=accuracy_handles, loc='upper left')
         plt.savefig(os.path.join(save_directory, '{} accuracy.png'.format(title)))

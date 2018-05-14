@@ -25,8 +25,7 @@ if "__main__" == __name__:
     validation_x, validation_y = split_set_to_features_and_output(validation_set)
     test_x, test_y = split_set_to_features_and_output(test_set)
 
-    train_x, validation_x, test_x = center_input(train_x, validation_x, test_x)
-    # TODO: should I or should i predict even odd?
+    train_x, validation_x, test_x = standardize_input(train_x, validation_x, test_x)
     train_y = array_to_one_hot(train_y, number_of_classes=number_of_classes)
     validation_y = array_to_one_hot(validation_y, number_of_classes=number_of_classes)
     test_y = array_to_one_hot(test_y, number_of_classes=number_of_classes)
@@ -38,36 +37,36 @@ if "__main__" == __name__:
     number_of_samples = train_x.shape[0]
     batch_size = 128
 
-    for regularization, weight_decay in (('l2', 0.0), ('l2', 5e-4), ('l1', 5e-4)):
-        title = 'No regularization' if weight_decay < 1e-9 else '{} regularization with {}'.format(regularization, weight_decay)
-        logger.info(title)
-        architecture = [
-            {
-                'input': train_x.shape[1],
-                'output': 128,
-                'nonlinear': 'relu',
-                'regularization': regularization,
-            },
-            {
-                'input': 128,
-                'output': number_of_classes,
-                'nonlinear': 'sot-max',
-                'regularization': regularization,
-            },
-        ]
-        model = mydnn(architecture, 'cross-entropy', weight_decay=weight_decay)
-        history = model.fit(train_x, train_y, 100, batch_size, 0.01, x_val=validation_x, y_val=validation_y)
-        plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=title)
-        validation_accuracies = [history_entry['validation accuracy'] for history_entry in history]
-        logger.info('Best on validation set achieved on epoch {} and {}'.format(1 + np.argmax(validation_accuracies),
-                                                                          np.max(validation_accuracies)))
+    # for regularization, weight_decay in (('l2', 0.0), ('l2', 5e-4), ('l1', 5e-4)):
+    #     title = 'No regularization' if weight_decay < 1e-9 else '{} regularization with {}'.format(regularization, weight_decay)
+    #     logger.info(title)
+    #     architecture = [
+    #         {
+    #             'input': train_x.shape[1],
+    #             'output': 128,
+    #             'nonlinear': 'relu',
+    #             'regularization': regularization,
+    #         },
+    #         {
+    #             'input': 128,
+    #             'output': number_of_classes,
+    #             'nonlinear': 'sot-max',
+    #             'regularization': regularization,
+    #         },
+    #     ]
+    #     model = mydnn(architecture, 'cross-entropy', weight_decay=weight_decay)
+    #     history = model.fit(train_x, train_y, 100, batch_size, 0.01, x_val=validation_x, y_val=validation_y)
+    #     plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=title)
+    #     validation_accuracies = [history_entry['validation accuracy'] for history_entry in history]
+    #     logger.info('Best on validation set achieved on epoch {} and {}'.format(1 + np.argmax(validation_accuracies),
+    #                                                                       np.max(validation_accuracies)))
 
-    epochs = 100
-    weight_decays = np.logspace(-7, 1, num=(1-(-7)+1))
+    epochs = 150
 
-    for regularization in ('l1', 'l2'):
-        last_validation_accuracies = list()
-        last_train_accuracies = list()
+    for regularization, weight_decays in (('l2', set.union(set(np.linspace(0.0, 0.2, num=10)), {5e-4})),
+                                          ('l1', set.union(set(np.linspace(0.0, 1e-3, num=10))), {5e-4})):
+        best_validation_accuracies = list()
+        best_train_accuracies = list()
 
         for weight_decay in weight_decays:
             title = 'No regularization' if weight_decay < 1e-9 else '{} regularization with {}'.format(regularization, weight_decay)
@@ -94,16 +93,16 @@ if "__main__" == __name__:
             logger.info('Best on validation set achieved on epoch {} and {}'.format(1 + np.argmax(validation_accuracies),
                                                                                     best_validation_accuracy))
             plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=title)
-            last_validation_accuracies.append(validation_accuracies[-1])
-            last_train_accuracies.append(history[-1]['train accuracy'])
+            best_validation_accuracies.append(best_validation_accuracy)
+            best_train_accuracies.append(history[-1]['train accuracy'])
 
         plt.figure()
-        train_handle, = plt.plot(weight_decays, last_validation_accuracies, label='Train accuracy')
-        validation_handle, = plt.plot(weight_decays, last_train_accuracies, label='Validation accuracy')
+        train_handle, = plt.plot(weight_decays, best_validation_accuracies, label='Train accuracy')
+        validation_handle, = plt.plot(weight_decays, best_train_accuracies, label='Validation accuracy')
         plt.title('Accuracies with {} regularization after {} epochs'.format(regularization, epochs))
         plt.xlabel('Weight decay')
         plt.ylabel('Accuracy')
-        plt.legend(handles=[train_handle, validation_handle], loc='upper left')
+        plt.legend(handles=[train_handle, validation_handle], loc='upper right')
         plt.savefig('graphs/accuracies with {} regularization'.format(regularization))
         plt.close()
 

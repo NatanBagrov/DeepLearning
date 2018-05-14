@@ -24,8 +24,7 @@ if "__main__" == __name__:
     validation_x, validation_y = split_set_to_features_and_output(validation_set)
     test_x, test_y = split_set_to_features_and_output(test_set)
 
-    train_x, validation_x, test_x = center_input(train_x, validation_x, test_x)
-    # TODO: should I or should i predict even odd?
+    train_x, validation_x, test_x = standardize_input(train_x, validation_x, test_x)
     train_y = array_to_one_hot(train_y, number_of_classes=number_of_classes)
     validation_y = array_to_one_hot(validation_y, number_of_classes=number_of_classes)
     test_y = array_to_one_hot(test_y, number_of_classes=number_of_classes)
@@ -57,7 +56,7 @@ if "__main__" == __name__:
     for current_batch_size in batch_sizes:
         logger.info('Batch size is {}'.format(current_batch_size))
         dnn = mydnn(architecture, 'cross-entropy')
-        history = dnn.fit(train_x, train_y, 100, current_batch_size, lr, x_val=validation_x, y_val=validation_y)
+        history = dnn.fit(train_x, train_y, 500, current_batch_size, lr, x_val=validation_x, y_val=validation_y)
         plot_iteration_to_loss_accuracy_from_history(history, train_x.shape[0], current_batch_size,
                                                      'Batch size is {} with learning rate of {}'.format(
                                                          current_batch_size,
@@ -83,4 +82,39 @@ if "__main__" == __name__:
     plt.savefig('graphs/Batch size to validation accuracy.png')
     plt.show()
 
-    # TODO: design and run more experiments to support your hypothesis
+    batch_sizes = np.linspace(1, 60000, num=10).astype(int)
+    best_validation_accuracy = list()
+    time_per_epoch = list()
+
+    for current_batch_size in batch_sizes:
+        epochs = (5000 * current_batch_size + train_x.shape[0] - 1) // train_x.shape[0]
+        logger.info('Batch size is {} for {} epochs'.format(current_batch_size, epochs))
+        dnn = mydnn(architecture, 'cross-entropy')
+        history = dnn.fit(train_x, train_y, epochs, current_batch_size, lr, x_val=validation_x, y_val=validation_y)
+        plot_iteration_to_loss_accuracy_from_history(history, train_x.shape[0], current_batch_size,
+                                                     'Batch size is {} with learning rate of {}'.format(
+                                                         current_batch_size,
+                                                         lr))
+        average_time = sum((history_entry['seconds'] for history_entry in history)) / len(history)
+        logger.info('Average time {} seconds per epoch'.format(average_time))
+        time_per_epoch.append(average_time)
+        best_accuracy = max([history_entry['validation accuracy'] for history_entry in history])
+        logger.info('Best validation accuracy was {}'.format(best_accuracy))
+        best_validation_accuracy.append(best_accuracy)
+
+    logger.debug(best_validation_accuracy)
+    logger.debug(time_per_epoch)
+
+    plt.figure()
+    plt.plot(batch_sizes, time_per_epoch)
+    plt.xlabel('Batch size')
+    plt.ylabel('Seconds per epoch')
+    plt.title('Epoch time from batch size')
+    plt.savefig('graphs/Batch size to time per epoch {} points.png'.format(len(batch_sizes)))
+    plt.figure()
+    plt.plot(batch_sizes, best_validation_accuracy)
+    plt.xlabel('Batch size')
+    plt.ylabel('Best validation accuracy')
+    plt.title('Validation accuracy from batch size')
+    plt.savefig('graphs/Batch size to validation accuracy {} points.png'.format(len(batch_sizes)))
+    plt.show()

@@ -46,12 +46,12 @@ class mydnn:
                 'seconds': seconds,
             }
 
-            # TODO: calculate average
+            # TODO: calculate average, we do need to include regularization here
             train_loss_and_accuracy = self.evaluate(x_train, y_train)
             train_validation_loss_accuracy = [
                 string.format(number)
                 # Exploit the fact that length of zip is minimum
-                for string, number in zip(['loss: {:.1f}', 'acc: {:.1f}'], train_loss_and_accuracy)
+                for string, number in zip(['loss: {:.2f}', 'acc: {:.2f}'], train_loss_and_accuracy)
             ]
 
             history_entry.update(dict(zip(['train loss', 'train accuracy'], train_loss_and_accuracy)))
@@ -60,12 +60,12 @@ class mydnn:
                 validation_loss_and_accuracy = self.evaluate(x_val, y_val)
                 train_validation_loss_accuracy.extend([
                     string.format(number)
-                    for string, number in zip(['val_loss: {:.1f}', 'val_acc: {:.1f}'], validation_loss_and_accuracy)
+                    for string, number in zip(['val_loss: {:.2f}', 'val_acc: {:.2f}'], validation_loss_and_accuracy)
                 ])
                 history_entry.update(dict(zip(['validation loss', 'validation accuracy'], validation_loss_and_accuracy)))
 
             print(' - '.join(['Epoch {}/{}'.format(1 + epoch_index, epochs),  # TODO: is it one based?
-                              '{:.0f} seconds'.format(seconds),] # TODO: how many digits after second
+                              '{:.2f} seconds'.format(seconds),] # TODO: how many digits after second
                              + train_validation_loss_accuracy
             ))
 
@@ -74,6 +74,12 @@ class mydnn:
         return history
 
     def predict(self, X, batch_size=None):
+        """
+        
+        :param X: 
+        :param batch_size: 
+        :return: Returns number_of_samplesxnumber_of_classes numpy array output of last network layer 
+        """
         number_of_samples = X.shape[0]
 
         if batch_size is None:

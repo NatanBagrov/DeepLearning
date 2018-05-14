@@ -20,9 +20,12 @@ def split_set_to_features_and_output(data_set):
     return data_set[0], data_set[1]
 
 
-def center_input(train_x, valid_x, test_x):
-    train_mean = np.mean(train_x, axis=0)
-    train_x, valid_x, test_x = train_x - train_mean, valid_x - train_mean, test_x - train_mean
+def standardize_input(train_x, valid_x, test_x):
+    train_mean = np.mean(train_x, axis=0)  # TODO: should it be axewise?
+    train_std = np.std(train_x)
+    train_x = (train_x - train_mean) / train_std
+    valid_x = (valid_x - train_mean) / train_std
+    test_x = (test_x - train_mean) / train_std
 
     return train_x, valid_x, test_x
 

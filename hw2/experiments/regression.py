@@ -23,12 +23,8 @@ def get_train_data(m):
     return train_x, train_y
 
 
-def get_validation_data(m):
-    return get_train_data(m)
-
-
 def get_test_data(test_step):
-    x1 = np.linspace(low, high, test_step) * np.linspace(low, high, test_step)
+    x1 = np.linspace(low, high, test_step)
     x2 = x1
     x1, x2 = np.meshgrid(x1, x2)
     test_x = np.column_stack((np.reshape(x1, (-1,)), np.reshape(x2, (-1,))))
@@ -54,7 +50,8 @@ if "__main__" == __name__:
     logger.addHandler(ch)
     logger.setLevel(logging.DEBUG)
 
-    test_x, test_y = get_test_data(1000)  # TODO: is it?
+    test_step = 1000
+    test_x, test_y = get_test_data(test_step)
 
     log_information_about_features('test', test_x)
 
@@ -62,7 +59,7 @@ if "__main__" == __name__:
         logger.debug('m=%d', m)
         train_x, train_y = get_train_data(m)
         log_information_about_features('train', train_x)
-        validation_x, validation_y = get_validation_data(int(0.4 * m))
+        validation_x, validation_y = test_x, test_y
         log_information_about_features('validation', validation_x)
         best_model = None
         best_model_mse = float("inf")
@@ -117,7 +114,13 @@ if "__main__" == __name__:
         test_y_predicted = best_model.predict(test_x)
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        surf = ax.plot_surface(test_x[:, 0], test_x[:, 1], test_y_predicted, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+        surf = ax.plot_surface(
+            test_x[:, 0].reshape(test_step, test_step),
+            test_x[:, 1].reshape(test_step, test_step),
+            test_y_predicted.reshape(test_step, test_step), cmap=cm.coolwarm, linewidth=0, antialiased=False)
         fig.colorbar(surf, shrink=0.5, aspect=5)
+        ax.set_xlabel('x_1')
+        ax.set_ylabel('x_2')
+        ax.set_zlabel('y_hat_test')
         plt.savefig('graphs/Regression predicted y from {} train samples with {} activation and {} units.png'.format(m, best_activation, best_units))
         plt.close()
