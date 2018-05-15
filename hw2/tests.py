@@ -13,6 +13,7 @@ from FullyConnectedLayer import FullyConnectedLayer
 from utils.ActivationFunctions import Identity, Softmax
 import tensorflow as tf
 from keras import layers, optimizers, Sequential, regularizers, losses, metrics
+from utils.Metrics import accuracy
 
 
 class TestMultiply(TestCase):
@@ -1066,6 +1067,21 @@ class TestMyDNN(TestCase):
     #         'cross-entropy',
     #         epochs=2
     #     )
+
+
+class TestMetrics(TestCase):
+    def test_accuracy(self):
+        y_true = np.array([[0, 0, 1],
+                           [0, 1, 0],
+                           [1, 0, 0]])
+        y_predicted = np.array([[0.1, 0.2, 0.7],
+                                [0.7, 0.1, 0.2],
+                                [0.7, 0.1, 0.2]])
+
+        accuracy_actual = accuracy(y_true, y_predicted)
+        accuracy_desired = 2.0 / 3.0
+
+        self.assertAlmostEqual(accuracy_actual, accuracy_desired)
 
 
 if "__main__" == __name__:

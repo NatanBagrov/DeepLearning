@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+
 def plot_iteration_to_loss_accuracy_from_history(history, number_of_samples, batch_size, title=None,
                                                  show=False, close_figures=True, save_directory='graphs'):
     if title is None:

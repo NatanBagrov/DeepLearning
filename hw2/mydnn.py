@@ -1,9 +1,10 @@
 import numpy as np
-from timeit import timeit
+from time import time
 from utils.LossFunctions import CrossEntropy
 from utils.RegularizationMethods import regularization_method_name_to_class
 from utils.ActivationFunctions import activation_function_name_to_class
 from utils.LossFunctions import loss_name_to_class
+from utils.Metrics import accuracy
 from FullyConnectedLayer import FullyConnectedLayer
 from graph.Variable import Variable
 from graph.BinaryOperations import Add, Multiply
@@ -39,7 +40,9 @@ class mydnn:
             x_train = x_train[permutation]
             y_train = y_train[permutation]
 
-            seconds = timeit(lambda: self._do_epoch(x_train, y_train, batch_size, learning_rate), number=1)
+            seconds = time()
+            train_loss_and_accuracy = self._do_epoch(x_train, y_train, batch_size, learning_rate)
+            seconds = time() - seconds
 
             history_entry = {
                 'epoch': 1 + epoch_index,
@@ -47,7 +50,6 @@ class mydnn:
             }
 
             # TODO: calculate average, we do need to include regularization here
-            train_loss_and_accuracy = self.evaluate(x_train, y_train)
             train_validation_loss_accuracy = [
                 string.format(number)
                 # Exploit the fact that length of zip is minimum
@@ -115,16 +117,15 @@ class mydnn:
             total_loss += loss * actual_batch_size
 
             if self._is_classification:
-                true_classes = np.argmax(y, axis=1)
-                predicted_classes = np.argmax(self._prediction_variable.get_value(), axis=1)
-                correctly_predicted = np.count_nonzero(true_classes == predicted_classes)
-                total_correctly_predicted += correctly_predicted
+                total_correctly_predicted += \
+                    accuracy(y[batch_offset:actual_batch_size],
+                             self._prediction_variable.get_value()) * actual_batch_size
 
         return_list = [total_loss / number_of_samples, ]
 
         if self._is_classification:
-            accuracy = 1.0 * total_correctly_predicted / number_of_samples
-            return_list.append(accuracy)
+            computed_accuracy = 1.0 * total_correctly_predicted / number_of_samples
+            return_list.append(computed_accuracy)
 
         return return_list
 
@@ -156,23 +157,34 @@ class mydnn:
 
     def _do_epoch(self, x_train, y_train, batch_size, learning_rate):
         number_of_samples = x_train.shape[0]
-        total_loss = 0.0
+
+        if self._is_classification:
+            total_loss_accuracy = np.zeros((2,))
+        else:
+            total_loss_accuracy = np.zeros((1,))
 
         for batch_offset in range(0, number_of_samples, batch_size):
             # Other dimensions are left
-            actual_batch_size = min(number_of_samples, batch_offset + batch_size)
-            x_batch = x_train[batch_offset:actual_batch_size]
-            y_batch = y_train[batch_offset:actual_batch_size]
+            actual_batch_size = min(number_of_samples - batch_offset, batch_size)
+            x_batch = x_train[batch_offset:batch_offset + actual_batch_size]
+            y_batch = y_train[batch_offset:batch_offset + actual_batch_size]
 
-            total_loss += self._do_iteration(x_batch, y_batch, learning_rate) * actual_batch_size
+            total_loss_accuracy += np.array(self._do_iteration(x_batch, y_batch, learning_rate)) * actual_batch_size
 
-        return total_loss / number_of_samples
+        return total_loss_accuracy / number_of_samples
 
     def _do_iteration(self, x_batch, y_batch, learning_rate):
         self._x_variable.set_value(x_batch)
         self._y_variable.set_value(y_batch)
 
-        loss = self._loss_variable.forward()
+        mini_batch_loss_accuracy = list()
+        mini_batch_loss = self._loss_variable.forward()
+        mini_batch_loss_accuracy.append(mini_batch_loss)
+
+        if self._is_classification:
+            mini_batch_accuracy = accuracy(y_batch, self._prediction_variable.get_value())
+            mini_batch_loss_accuracy.append(mini_batch_accuracy)
+
         self._loss_variable.backward()
 
         for current_layer in self._architecture:
@@ -180,5 +192,5 @@ class mydnn:
 
         self._loss_variable.reset()
 
-        return loss
+        return mini_batch_loss_accuracy
 

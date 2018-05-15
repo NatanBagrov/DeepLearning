@@ -61,10 +61,12 @@ if "__main__" == __name__:
     #     logger.info('Best on validation set achieved on epoch {} and {}'.format(1 + np.argmax(validation_accuracies),
     #                                                                       np.max(validation_accuracies)))
 
-    epochs = 150
+    epochs = 200
 
-    for regularization, weight_decays in (('l2', set.union(set(np.linspace(0.0, 0.2, num=10)), {5e-4})),
-                                          ('l1', set.union(set(np.linspace(0.0, 1e-3, num=10))), {5e-4})):
+    for regularization, weight_decays in (
+            ('l1', sorted(list(set.union(set(np.linspace(0.0, 3e-4, num=10)), {5e-4})))),
+            ('l2', sorted(list(set.union(set(np.linspace(0.0, 1e-3, num=10)), {5e-4})))),
+    ):
         best_validation_accuracies = list()
         best_train_accuracies = list()
 
