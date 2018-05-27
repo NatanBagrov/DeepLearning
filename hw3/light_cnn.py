@@ -3,7 +3,7 @@ import os
 import keras
 import numpy as np
 from keras import regularizers
-from keras.callbacks import LearningRateScheduler
+from keras.callbacks import LearningRateScheduler, ModelCheckpoint
 from keras.datasets import cifar10
 from keras.layers import Dense, MaxPool2D, Conv2D, Dropout
 from keras.layers import Flatten
@@ -143,8 +143,11 @@ def normalize_data(X_train, X_test):
     return X_train, X_test
 
 
-def build_and_fit_model(param_dict, number_of_epochs):
+def build_and_fit_model(param_dict, number_of_epochs, save_weights_only=False):
     num_classes = 10
+    save_dir = os.path.join(os.getcwd(), 'saved_models')
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
 
     # The data, split between train and test sets:
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
@@ -172,35 +175,38 @@ def build_and_fit_model(param_dict, number_of_epochs):
 
     batch_size = param_dict['batch_size']
 
-    # TODO: add checkpoint to save params when validation > 0.85 + threshold
+    model_name = 'weights.{epoch:02d}-{val_acc:.3f}.h5'
+    model_path = os.path.join(save_dir, model_name)
+    checkpoint_callback = ModelCheckpoint(filepath=model_path,
+                                          monitor='val_acc',
+                                          verbose=1,
+                                          save_best_only=True,
+                                          save_weights_only=False,
+                                          mode='auto',
+                                          period=1)
+
+    callbacks = [learning_rate_scheduler, checkpoint_callback]
 
     if param_dict['augmentation']:
         history = model.fit_generator(datagen.flow(x_train, y_train, batch_size=batch_size),
-                                      callbacks=[learning_rate_scheduler],
+                                      callbacks=callbacks,
                                       steps_per_epoch=x_train.shape[0] // batch_size,
                                       epochs=number_of_epochs,
                                       validation_data=(x_test, y_test),
                                       workers=4)
     else:
-        history = model.fit(x_train, y_train, epochs=number_of_epochs, callbacks=[learning_rate_scheduler],
+        history = model.fit(x_train, y_train, epochs=number_of_epochs,
+                            callbacks=callbacks,
                             validation_data=(x_test, y_test),
                             batch_size=batch_size)
 
     # Evaluate the model
     test_loss, test_accuracy = model.evaluate(x_test, y_test, verbose=1)
-    print('Test loss:', test_loss)
-    print('Test accuracy:', test_accuracy)
-    # Save model and weights
-    save_dir = os.path.join(os.getcwd(), 'saved_models')
-    model_name = 'keras_cifar10_trained_model_{:4f}.h5'.format(test_accuracy)
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
-    model_path = os.path.join(save_dir, model_name)
-    model.save(model_path)
-    print('Saved trained model at %s ' % model_path)
+    print('Test loss (after training finished):', test_loss)
+    print('Test accuracy (after training finished):', test_accuracy)
 
 
-validation_0855_params = {
+params_0855 = {
     'batch_norm': True,
     'dropout': 0,
     'weight_decay': 5e-4,
@@ -221,5 +227,33 @@ validation_0855_params = {
         vertical_flip=False)  # randomly flip images
 }
 
+
+def load_model_and_predict(model_path, model_params=None):
+    if model_params is None:
+        loaded_model = keras.models.load_model(model_path)
+    else:
+        loaded_model = build_model(model_params['batch_norm'],
+                                   model_params['dropout'],
+                                   model_params['weight_decay'],
+                                   model_params['initial_learning_rate']).load_weights(model_path)
+    loaded_model.summary()
+
+    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    # Convert class vectors to binary class matrices.
+    num_classes = 10
+    y_train = keras.utils.to_categorical(y_train, num_classes)
+    y_test = keras.utils.to_categorical(y_test, num_classes)
+
+    # Data normalization
+    x_train, x_test = normalize_data(x_train, x_test)
+
+    test_loss, test_accuracy = loaded_model.evaluate(x_test, y_test, verbose=1)
+    print('Loaded model - Test loss:', test_loss)
+    print('Loaded model - Test accuracy:', test_accuracy)
+
+    return loaded_model
+
+
 if __name__ == '__main__':
-    build_and_fit_model(validation_0855_params, 300)
+    build_and_fit_model(params_0855, 300, save_weights_only=False)  # Uncomment this if you with to train the model
+    load_model_and_predict(params_0855, 'filename')
