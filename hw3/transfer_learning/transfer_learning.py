@@ -1,12 +1,11 @@
 import keras
-import numpy as np
 from keras import optimizers
 from keras.datasets import cifar10
-from keras.layers import Dense, regularizers, Activation
+from keras.layers import Dense, Activation
 from keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 
-from cifar100vgg import cifar100vgg
+from transfer_learning.cifar100vgg import cifar100vgg
 
 
 def fine_tuning(pretrained_vgg_model, debug=False):

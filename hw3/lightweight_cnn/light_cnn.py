@@ -10,6 +10,7 @@ from keras.layers import Flatten
 from keras.layers.normalization import BatchNormalization
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
+from matplotlib import pyplot as plt
 
 
 def step_decay_scheduler_generator(initial_lr, coef, epoch_threshold):
@@ -188,22 +189,24 @@ def build_and_fit_model(param_dict, number_of_epochs, save_weights_only=False):
     callbacks = [learning_rate_scheduler, checkpoint_callback]
 
     if param_dict['augmentation']:
-        history = model.fit_generator(datagen.flow(x_train, y_train, batch_size=batch_size),
-                                      callbacks=callbacks,
-                                      steps_per_epoch=x_train.shape[0] // batch_size,
-                                      epochs=number_of_epochs,
-                                      validation_data=(x_test, y_test),
-                                      workers=4)
+        training_history = model.fit_generator(datagen.flow(x_train, y_train, batch_size=batch_size),
+                                               callbacks=callbacks,
+                                               steps_per_epoch=x_train.shape[0] // batch_size,
+                                               epochs=number_of_epochs,
+                                               validation_data=(x_test, y_test),
+                                               workers=4)
     else:
-        history = model.fit(x_train, y_train, epochs=number_of_epochs,
-                            callbacks=callbacks,
-                            validation_data=(x_test, y_test),
-                            batch_size=batch_size)
+        training_history = model.fit(x_train, y_train, epochs=number_of_epochs,
+                                     callbacks=callbacks,
+                                     validation_data=(x_test, y_test),
+                                     batch_size=batch_size)
 
     # Evaluate the model
     test_loss, test_accuracy = model.evaluate(x_test, y_test, verbose=1)
     print('Test loss (after training finished):', test_loss)
     print('Test accuracy (after training finished):', test_accuracy)
+
+    return training_history
 
 
 params_0855 = {
@@ -229,14 +232,16 @@ params_0855 = {
 
 
 def load_model_and_predict(model_path, model_params=None):
+    print("LOADING SAVED MODEL FROM: %s" % model_path)
     if model_params is None:
         loaded_model = keras.models.load_model(model_path)
+        loaded_model.summary()
     else:
         loaded_model = build_model(model_params['batch_norm'],
                                    model_params['dropout'],
                                    model_params['weight_decay'],
-                                   model_params['initial_learning_rate']).load_weights(model_path)
-    loaded_model.summary()
+                                   model_params['initial_learning_rate'])
+        loaded_model.load_weights(model_path)
 
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # Convert class vectors to binary class matrices.
@@ -254,6 +259,39 @@ def load_model_and_predict(model_path, model_params=None):
     return loaded_model
 
 
+def visualize_model_history(history, file_name_prefix=None, show=False):
+    save_dir = os.path.join(os.getcwd(), 'training_visualization')
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    if show:
+        plt.show()
+    if file_name_prefix is not None:
+        file_name = file_name_prefix + 'accuracy.png'
+        plt.savefig(os.path.join(save_dir, file_name))
+    # summarize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    if show:
+        plt.show()
+    if file_name_prefix is not None:
+        file_name = file_name_prefix + 'loss.png'
+        plt.savefig(os.path.join(save_dir, file_name))
+
+
 if __name__ == '__main__':
-    build_and_fit_model(params_0855, 300, save_weights_only=False)  # Uncomment this if you with to train the model
-    load_model_and_predict(params_0855, 'filename')
+    #  Uncomment this if you with to train the model
+    history = build_and_fit_model(params_0855, 2, save_weights_only=True)
+    visualize_model_history(history=history, file_name_prefix='light_cnn_', show=False)
+    # model_path = os.path.join('saved_models', 'light_cnn_weights.02-0.515.h5')
+    # load_model_and_predict(model_path, params_0855)
