@@ -175,7 +175,7 @@ def build_and_fit_model(param_dict, number_of_epochs, save_weights_only=False):
 
     batch_size = param_dict['batch_size']
 
-    model_name = 'weights.{epoch:02d}-{val_acc:.3f}.h5'
+    model_name = 'light_cnn_weights.{epoch:02d}-{val_acc:.3f}.h5'
     model_path = os.path.join(save_dir, model_name)
     checkpoint_callback = ModelCheckpoint(filepath=model_path,
                                           monitor='val_acc',
