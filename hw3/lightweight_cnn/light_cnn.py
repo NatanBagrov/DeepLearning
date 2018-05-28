@@ -124,7 +124,7 @@ def build_model(do_batch_norm, dropout, weight_decay, initial_learning_rate):
 
     model.add(Dense(10, activation='softmax', kernel_regularizer=regularizers.l2(weight_decay)))
 
-    sgd = keras.optimizers.SGD(lr=initial_learning_rate, momentum=0.9, nesterov=True)
+    sgd = keras.optimizers.Adam(lr=initial_learning_rate, decay=1e-4)
     model.compile(
         loss='categorical_crossentropy',
         optimizer=sgd,
@@ -213,9 +213,9 @@ params_0855 = {
     'batch_norm': True,
     'dropout': 0,
     'weight_decay': 5e-4,
-    'initial_learning_rate': 0.05,
+    'initial_learning_rate': 0.001,
     'scheduler': step_decay_scheduler_generator(0.05, 0.2, 60),
-    'batch_size': 256,
+    'batch_size': 32,
     'augmentation': True,
     'image_data_generator': ImageDataGenerator(
         featurewise_center=False,  # set input mean to 0 over the dataset
