@@ -291,7 +291,7 @@ def visualize_model_history(history, file_name_prefix=None, show=False):
 
 if __name__ == '__main__':
     #  Uncomment this if you with to train the model
-    history = build_and_fit_model(params_0855, 2, save_weights_only=True)
-    visualize_model_history(history=history, file_name_prefix='light_cnn_', show=False)
-    # model_path = os.path.join('saved_models', 'light_cnn_weights.02-0.515.h5')
-    # load_model_and_predict(model_path, params_0855)
+    # history = build_and_fit_model(params_0855, number_of_epochs=300, save_weights_only=True)
+    # visualize_model_history(history=history, file_name_prefix='light_cnn_', show=True)
+    model_path = os.path.join('saved_models', 'light_cnn_weights.189-0.857.h5')
+    load_model_and_predict(model_path, params_0855)
