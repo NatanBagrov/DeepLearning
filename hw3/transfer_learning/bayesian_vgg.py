@@ -84,13 +84,13 @@ def bayesian_vgg(pretrained_vgg_model, training_sizes, num_visualizations=0):
 
 
 def plot_accuracies(train_test_dict, training_sizes, show=False, file_path=None):
-    plt.plot(training_sizes, [s[0] for s in train_test_dict], marker='o')
     plt.plot(training_sizes, [s[1] for s in train_test_dict], marker='o')
+    plt.plot(training_sizes, [s[0] for s in train_test_dict], marker='o')
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('number of samples the model was trained on')
     plt.xscale('log')
-    plt.legend(['test', 'train'], loc='upper right')
+    plt.legend(['train', 'test'], loc='upper right')
     if show:
         plt.show()
     if file_path is not None:
@@ -98,9 +98,10 @@ def plot_accuracies(train_test_dict, training_sizes, show=False, file_path=None)
 
 
 if __name__ == '__main__':
-    cifar_100_vgg = cifar100vgg(train=False)
+    # cifar_100_vgg = cifar100vgg(train=False)
     training_samples_num = [100, 1000, 10000]
-    sample_accuracies = bayesian_vgg(cifar_100_vgg.model, training_samples_num, num_visualizations=0)
-    print(sample_accuracies)
+    # sample_accuracies = bayesian_vgg(cifar_100_vgg.model, training_samples_num, num_visualizations=0)
+    # print(sample_accuracies)
+    sample_accuracies = [(0.3544, 0.7), (0.4087, 0.512), (0.45, 0.4627)]
     plot_accuracies(sample_accuracies, training_samples_num, show=True, file_path=None)
 
