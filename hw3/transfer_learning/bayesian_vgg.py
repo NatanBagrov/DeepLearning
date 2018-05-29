@@ -27,15 +27,15 @@ def visualize_image(sample, probabilities, X, y):
     ax1.set_title("CIFAR-10")
     ax1.imshow(sample)
     for i, sample in enumerate(top_5_cifar100_samples):
-        ax = fig.add_subplot(2, 3, i+2)
-        ax.set_title("{} ({:.2f})". format(top_5_labels[i], top_5_probs[i]))
+        ax = fig.add_subplot(2, 3, i + 2)
+        ax.set_title("{} ({:.2f})".format(top_5_labels[i], top_5_probs[i]))
         ax.imshow(sample)
     fig.show()
     fig.clf()
     fig.clear()
 
 
-def bayesian_vgg(pretrained_vgg_model, num_visualizations=0):
+def bayesian_vgg(pretrained_vgg_model, training_sizes, num_visualizations=0):
     (x_100, y_100), (x_test_100, y_test_100) = cifar100.load_data()
     new_num_labels = 10
     old_num_labels = 100
@@ -44,7 +44,7 @@ def bayesian_vgg(pretrained_vgg_model, num_visualizations=0):
     print("The test size: %d" % test_size)
     test_probabilities = pretrained_vgg_model.predict(normalize(x_test), verbose=1, batch_size=256)
     accuracies = list()
-    for idx, num_samples in enumerate([100, 1000, 10000]):
+    for idx, num_samples in enumerate(training_sizes):
         x_train, _, y_train, _ = train_test_split(orig_x_train, orig_y_train,
                                                   train_size=num_samples, random_state=42, stratify=orig_y_train)
 
@@ -83,7 +83,24 @@ def bayesian_vgg(pretrained_vgg_model, num_visualizations=0):
     return accuracies
 
 
+def plot_accuracies(train_test_dict, training_sizes, show=False, file_path=None):
+    plt.plot(training_sizes, [s[0] for s in train_test_dict], marker='o')
+    plt.plot(training_sizes, [s[1] for s in train_test_dict], marker='o')
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('number of samples the model was trained on')
+    plt.xscale('log')
+    plt.legend(['test', 'train'], loc='upper right')
+    if show:
+        plt.show()
+    if file_path is not None:
+        plt.savefig(file_path)
+
+
 if __name__ == '__main__':
     cifar_100_vgg = cifar100vgg(train=False)
-    sample_accuracies = bayesian_vgg(cifar_100_vgg.model, num_visualizations=0)
+    training_samples_num = [100, 1000, 10000]
+    sample_accuracies = bayesian_vgg(cifar_100_vgg.model, training_samples_num, num_visualizations=0)
     print(sample_accuracies)
+    plot_accuracies(sample_accuracies, training_samples_num, show=True, file_path=None)
+
