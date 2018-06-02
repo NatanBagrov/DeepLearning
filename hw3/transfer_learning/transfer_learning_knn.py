@@ -47,7 +47,7 @@ def search_parameters_for_knn(x, y):
         x, y,
         KNeighborsClassifier,
         {
-            'n_neighbors': np.arange(1, 20, 2),
+            'n_neighbors': np.arange(1, 10, 2),
         }
     )
     print('parameters=%r score=%r' % (parameters1, score1))
@@ -84,7 +84,7 @@ def main():
         print('number_of_samples=%d' % number_of_samples)
         current_x_train, _, current_y_train, _ = train_test_split(x_train, y_train,
                                                   train_size=number_of_samples, random_state=42, stratify=y_train)
-        parameters = dict()#search_parameters_for_knn(x_train, y_train)
+        parameters = {'n_neighbors': 9}# search_parameters_for_knn(x_train, y_train)
         embedded_tail = KNeighborsClassifier(**parameters)
         embedded_tail.fit(current_x_train, current_y_train)
         train_accuracy = embedded_tail.score(x_train, y_train)
