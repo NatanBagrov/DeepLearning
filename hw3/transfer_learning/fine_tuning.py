@@ -10,7 +10,7 @@ from transfer_learning.cifar100vgg import cifar100vgg
 from plotting import plot_history
 
 
-def fine_tuning(pretrained_vgg_model, debug=False):
+def fine_tuning(preprocess, pretrained_vgg_model, debug=False):
     if debug:
         pretrained_vgg_model.summary()
     number_of_classes = 10
@@ -33,13 +33,14 @@ def fine_tuning(pretrained_vgg_model, debug=False):
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
         x_train, _, y_train, _ = train_test_split(x_train, y_train,
                                                   train_size=num_samples, random_state=42, stratify=y_train)
-
+        x_train = preprocess(x_train)
+        x_test = preprocess(x_test)
         y_train = keras.utils.to_categorical(y_train, number_of_classes)
         y_test = keras.utils.to_categorical(y_test, number_of_classes)
 
         batch_size = batch_sizes[idx]
-        max_epochs = 250
-        learning_rate = 0.001
+        max_epochs = 200 if 100 == num_samples else 100
+        learning_rate = 0.0001
         lr_decay = 1e-6
         lr_drop = 20
 
@@ -55,8 +56,8 @@ def fine_tuning(pretrained_vgg_model, debug=False):
 
         # data augmentation
         datagen = ImageDataGenerator(
-            featurewise_center=True,  # set input mean to 0 over the dataset
-            samplewise_center=True,  # set each sample mean to 0
+            featurewise_center=False,  # set input mean to 0 over the dataset
+            samplewise_center=False,  # set each sample mean to 0
             featurewise_std_normalization=False,  # divide inputs by std of the dataset
             samplewise_std_normalization=False,  # divide each input by its std
             # zca_whitening=False,  # apply ZCA whitening
@@ -84,11 +85,11 @@ def fine_tuning(pretrained_vgg_model, debug=False):
                                       verbose=1)
         model.save_weights('cifar10vgg_finetuning_{}_trainset.h5'.format(num_samples))
         fine_tuned.append((model, history))
-        plot_history(history)
+        plot_history(history, 'Fine tuning with {} training samples'.format(num_samples))
 
     return fine_tuned
 
 
 if __name__ == '__main__':
     cifar_100_vgg = cifar100vgg(train=False)
-    models_and_histories = fine_tuning(cifar_100_vgg.model, debug=False)
+    models_and_histories = fine_tuning(cifar_100_vgg.normalize_production, cifar_100_vgg.model, debug=False)
