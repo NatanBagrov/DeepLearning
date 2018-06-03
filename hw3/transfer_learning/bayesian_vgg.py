@@ -64,33 +64,50 @@ def bayesian_vgg(pretrained_vgg_model, training_sizes, num_visualizations=0):
         np.testing.assert_allclose(np.sum(p_x_given_ck, axis=1), np.ones(new_num_labels), atol=1e-4)
 
         y_pred = np.array([np.argmax(p_x_given_ck[:, np.argmax(test_probabilities[i])]) for i in range(test_size)])
-        test_score = accuracy_score(y_test, y_pred)
+        test_score_1 = accuracy_score(y_test, y_pred)
         y_pred = np.array([np.argmax(p_x_given_ck[:, np.argmax(train_probabilities[i])]) for i in range(num_samples)])
-        train_score = accuracy_score(y_train, y_pred)
-        accuracies.append((test_score, train_score))
-        print("P(Ck|X) = ACCURACY IS {} over {} samples of test"
-              .format(test_score, test_size))
-        print("P(Ck|X) = ACCURACY IS {} over {} samples of train"
-              .format(train_score, num_samples))
+        train_score_1 = accuracy_score(y_train, y_pred)
+        print("P(Ck|X) first appr. = ACCURACY IS {} over {} samples of test"
+              .format(test_score_1, test_size))
+        print("P(Ck|X) first appr.  = ACCURACY IS {} over {} samples of train"
+              .format(train_score_1, num_samples))
+
+        y_pred = np.argmax(test_probabilities @ p_x_given_ck.T, axis=1)
+        test_score_2 = accuracy_score(y_test, y_pred)
+        y_pred = np.argmax(train_probabilities @ p_x_given_ck.T, axis=1)
+        train_score_2 = accuracy_score(y_train, y_pred)
+        print("P(Ck|X) second appr. = ACCURACY IS {} over {} samples of test"
+              .format(test_score_2, test_size))
+        print("P(Ck|X) second appr.  = ACCURACY IS {} over {} samples of train"
+              .format(train_score_2, num_samples))
 
         # A sanity to confirm that we do better there Naive Bayes
-        # train_one_hot_features = np.eye(old_num_labels)[np.argmax(train_probabilities, axis=1)]
-        # test_one_hot_features = np.eye(old_num_labels)[np.argmax(test_probabilities, axis=1)]
-        # model = MultinomialNB().fit(train_one_hot_features, y_train)
-        # y_pred = model.predict(test_one_hot_features)
-        # print(accuracy_score(y_test, y_pred))
+        train_one_hot_features = np.eye(old_num_labels)[np.argmax(train_probabilities, axis=1)]
+        test_one_hot_features = np.eye(old_num_labels)[np.argmax(test_probabilities, axis=1)]
+        model = MultinomialNB().fit(train_one_hot_features, y_train)
+        y_pred = model.predict(test_one_hot_features)
+        nb_score = accuracy_score(y_test, y_pred)
+        accuracies.append((train_score_1, test_score_1, train_score_2, test_score_2, nb_score))
 
     return accuracies
 
 
 def plot_accuracies(train_test_dict, training_sizes, show=False, file_path=None):
-    plt.plot(training_sizes, [s[1] for s in train_test_dict], marker='o')
-    plt.plot(training_sizes, [s[0] for s in train_test_dict], marker='o')
-    plt.title('model accuracy')
+    plt.plot(training_sizes, [s[0] for s in train_test_dict], marker='o', color='blue', linestyle='dashed')
+    plt.plot(training_sizes, [s[1] for s in train_test_dict], marker='o', color='orange', linestyle='dashed')
+    plt.plot(training_sizes, [s[2] for s in train_test_dict], marker='o', color='blue')
+    plt.plot(training_sizes, [s[3] for s in train_test_dict], marker='o', color='orange')
+    plt.plot(training_sizes, [s[4] for s in train_test_dict], marker='o', color='lightgray')
+    plt.title('model accuracy (test results are over 10000 samples)')
     plt.ylabel('accuracy')
     plt.xlabel('number of samples the model was trained on')
     plt.xscale('log')
-    plt.legend(['train', 'test'], loc='upper right')
+    plt.legend(['train, first approach',
+                'test, first approach',
+                'train, second approach',
+                'test, second approach',
+                'test, naive-bayes'
+                ], loc='upper right')
     if show:
         plt.show()
     if file_path is not None:
@@ -98,10 +115,12 @@ def plot_accuracies(train_test_dict, training_sizes, show=False, file_path=None)
 
 
 if __name__ == '__main__':
-    # cifar_100_vgg = cifar100vgg(train=False)
+    cifar_100_vgg = cifar100vgg(train=False)
     training_samples_num = [100, 1000, 10000]
-    # sample_accuracies = bayesian_vgg(cifar_100_vgg.model, training_samples_num, num_visualizations=0)
-    # print(sample_accuracies)
-    sample_accuracies = [(0.3544, 0.7), (0.4087, 0.512), (0.45, 0.4627)]
+    sample_accuracies = bayesian_vgg(cifar_100_vgg.model, training_samples_num, num_visualizations=0)
+    # sample_accuracies = [(0.7, 0.3544, 0.7, 0.383, 0.3124),
+    #                (0.512, 0.4087, 0.545, 0.4419, 0.3965),
+    #                (0.4627, 0.45, 0.4892, 0.4767, 0.4462)]  # Just for fast print, and graph debugging
+    print(sample_accuracies)
     plot_accuracies(sample_accuracies, training_samples_num, show=True, file_path=None)
 
