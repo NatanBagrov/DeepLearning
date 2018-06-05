@@ -2,7 +2,7 @@ import math
 
 import matplotlib.pyplot as plt
 
-from shredder import Shredder
+from utils.shredder import Shredder
 
 
 class Visualizer:

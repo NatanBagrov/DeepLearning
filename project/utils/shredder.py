@@ -1,4 +1,5 @@
 import math
+from random import shuffle
 
 import cv2
 import numpy as np
@@ -6,7 +7,7 @@ import numpy as np
 
 class Shredder:
     @staticmethod
-    def shred_image(np_image, t):
+    def shred(np_image, t, shuffle_shreds=False):
         """
         Shredding an image (cv2) into t^2 shreds
         :param np_image: a cv2 loaded image
@@ -26,15 +27,16 @@ class Shredder:
             for w in range(t):
                 crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
                 result.append(crop)
-
+        if shuffle_shreds:
+            shuffle(result)
         return result
 
     @staticmethod
     def reconstruct(crops_list):
-        """
+        '''
         Reconstructing the original image given a list of crops row-major
         :param crops_list: the list of crops
         :return: np array - the reconstructed image
-        """
+        '''
         t = round(math.sqrt(len(crops_list)))
         return np.concatenate([np.concatenate(crops_list[t * idx:t * idx + t], axis=1) for idx in range(t)], axis=0)
