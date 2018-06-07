@@ -29,7 +29,7 @@ class Shredder:
                 result.append(crop)
         if shuffle_shreds:
             shuffle(result)
-        return result
+        return np.stack(result, axis=0)
 
     @staticmethod
     def reconstruct(crops_list):
