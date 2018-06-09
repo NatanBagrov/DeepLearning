@@ -80,6 +80,7 @@ class FishOrDocClassifier:
 
         batch_size = self._param_dict['batch_size']
         callbacks = [learning_rate_scheduler]
+
         training_history = self._model.fit(x_train, y_train, epochs=self._param_dict['epochs'],
                                            callbacks=callbacks,
                                            validation_data=(x_test, y_test),

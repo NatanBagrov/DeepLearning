@@ -1,25 +1,17 @@
-from enum import Enum
-
 from keras import Sequential
 from keras.activations import relu, softmax
-from keras.layers import Conv1D, Conv2D, MaxPool2D, Dense, Activation, BatchNormalization, Flatten
+from keras.layers import Conv2D, MaxPool2D, Dense, Activation, BatchNormalization, Flatten
 from keras.optimizers import Adam
 from keras.losses import categorical_crossentropy
 from keras.metrics import categorical_accuracy
 from keras.callbacks import ModelCheckpoint
-from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import zero_one_loss
 import numpy as np
 
 from utils.data_provider import DataProvider
+from utils.image_type import ImageType
 from utils.visualizer import PlotCallback
 from utils.data_manipulations import shred_and_resize_to
-
-
-class ImageType(Enum):
-    IMAGES = 'images'
-    DOCUMENTS ='documents'
 
 
 class OnePictureClassify:
