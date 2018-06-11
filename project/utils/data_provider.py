@@ -71,13 +71,13 @@ class DataProvider:
 
         images = get_images(num_samples=number_of_samples)
 
-        x = shred_and_resize_to(images, t, (height, width))
-        assert x.shape == (len(images), t ** 2, height, width)
-        y = np.repeat(np.arange(t**2).reshape(1, -1), len(images, 0))
+        x = shred_and_resize_to(images, t, (width, height))
+        assert x.shape == (len(images), t ** 2, height, width), '{}'.format(x.shape)
+        y = np.repeat(np.arange(t**2).reshape(1, -1), len(images), axis=0)
 
-        (train_validation_x, train_validation_y), (test_x, test_y) = \
+        train_validation_x, test_x, train_validation_y, test_y = \
             train_test_split(x, y, test_size=test_size)
-        (train_x, train_y), (validation_x, validation_y) = \
+        train_x, validation_x, train_y, validation_y = \
             train_test_split(train_validation_x, train_validation_y, train_size=train_size)
 
         assert train_x.shape == (train_x.shape[0], t**2, height, width)

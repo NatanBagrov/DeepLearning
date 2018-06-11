@@ -20,9 +20,9 @@ def resize_to(x, resize_shape):
     return list_of_images_to_numpy([f(im) for im in x])
 
 
-def shred_and_resize_to(x: list, t, resize_shape):
+def shred_and_resize_to(x: list, t, width_height):
     def shred_and_resize_to_single_image(image):
-        return resize_to(Shredder.shred(image, t), resize_shape)
+        return resize_to(Shredder.shred(image, t), width_height)
 
     return list_of_images_to_numpy(list(map(shred_and_resize_to_single_image, x)))
 

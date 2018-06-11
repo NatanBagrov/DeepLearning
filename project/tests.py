@@ -1,15 +1,21 @@
 import itertools
 import os
 import random
+import time
 from unittest import TestCase, main as unittest_main
 
 import cv2
 import numpy as np
+from keras import Model, Input
+from keras.utils import to_categorical
+from sinkhorn_knopp.sinkhorn_knopp import SinkhornKnopp  # TODO: install it (add to dep)
 
 from models.fish_or_doc_classifier import FishOrDocClassifier
 from utils.data_manipulations import shred_shuffle_and_reconstruct, list_of_images_to_numpy
 from utils.data_provider import DataProvider
 from utils.shredder import Shredder
+from models.deep_permutation_network import DeepPermutationNetwork
+from utils.layers import RepeatLayer, ExpandDimension
 
 tests_root = os.path.join(os.getcwd(), 'test_files')
 
@@ -93,6 +99,85 @@ class FishOrDocClassifierTests(TestCase):
         print('Fish accuracy {}/{} ({:.3f})'.format(results, num_fish, results / num_fish))
         results = num_docs - np.sum(fod_clf.is_fish(docs))
         print('Docs accuracy {}/{} ({:.3f})'.format(results, num_docs, results / num_docs))
+
+
+class DeepPermutationNetworkTests(TestCase):
+    @staticmethod
+    def _find_closest_l1_p_by_dsm_bf(dsm):
+        n, n = dsm.shape
+        best_permutations_matrix = to_categorical(np.arange(n))
+
+        for current_permutation in itertools.permutations(list(range(n))):
+            permutations_matrix = to_categorical(current_permutation, num_classes=n)
+            assert np.allclose(current_permutation, permutations_matrix @ np.arange(n))
+
+            if np.linalg.norm(permutations_matrix - dsm, ord=1) < np.linalg.norm(best_permutations_matrix - dsm, ord=1):
+                best_permutations_matrix = permutations_matrix
+
+        return best_permutations_matrix
+
+    def test_find_p_by_dsm(self):
+        np.random.seed(42)
+
+        for i in range(100):
+            n = np.random.randint(2, 5)
+            matrix = np.random.sample((n, n))
+            dsm = SinkhornKnopp().fit(matrix)
+            p_predicted = DeepPermutationNetwork._find_p_by_dsm_using_lp(dsm)
+            p_true = DeepPermutationNetworkTests._find_closest_l1_p_by_dsm_bf(dsm)
+            l1_predicted = np.linalg.norm(p_predicted - dsm, ord=1)
+            l1_true = np.linalg.norm(p_true - dsm, ord=1)
+
+            print('Predicted L1 error: {}. Optimal L1 error: {}. Difference: {}'.format(l1_predicted, l1_true, l1_predicted - l1_true))
+
+    def test_find_p_by_m_t(self):
+        np.random.seed(42)
+
+        for t in (2, 4, 5):
+            n = 1000
+            start_time = time.time()
+
+            for i in range(n):
+                n = t**2
+                matrix = np.random.sample((n, n))
+                p_predicted = DeepPermutationNetwork._find_dsm_by_m(matrix)
+
+            end_time = time.time()
+
+            print('for t={}: {} s per run'.format(t, (end_time-start_time) / 100))
+
+
+
+class RepeatLayerTests(TestCase):
+    def test_repeat_channels_3(self):
+        number_of_samples = 64
+        shape = (128, 256, 1)
+        input = Input(shape=shape)
+        rl = RepeatLayer(3, -1)
+        output = rl(input)
+        model = Model([input], [output])
+
+        x = np.arange(number_of_samples * int(np.prod(shape))).reshape(tuple([number_of_samples,] + list(shape)))
+        y = model.predict(x)
+        self.assertEqual(y.shape, tuple([number_of_samples, ] + list(shape[:-1]) + [3, ]))
+        desired = np.repeat(x, 3, -1)
+        np.testing.assert_allclose(y, desired)
+
+
+class AppendDimensionTests(TestCase):
+    def test_append_dimension(self):
+        number_of_samples = 64
+        shape = (128, 256)
+        input = Input(shape=shape)
+        ad = ExpandDimension()
+        output = ad(input)
+        model = Model([input], [output])
+
+        x = np.arange(number_of_samples * int(np.prod(shape))).reshape(tuple([number_of_samples,] + list(shape)))
+        y = model.predict(x)
+        self.assertEqual(y.shape, tuple([number_of_samples, ] + list(shape) + [1, ]))
+        desired = np.reshape(x, list(x.shape) + [1, ])
+        np.testing.assert_allclose(y, desired)
 
 
 if __name__ == '__main__':
