@@ -22,6 +22,7 @@ from utils.image_type import ImageType
 from utils.data_provider import DataProvider
 from utils.layers import ExpandDimension, RepeatLayer
 from utils.metrics import keras_zero_one_loss, numpy_zero_one_loss
+from utils.os_functions import maybe_make_directories
 
 
 class DeepPermutationNetwork:
@@ -54,12 +55,12 @@ class DeepPermutationNetwork:
 
     @staticmethod
     def _build_after_pre_trained(inputs):
-        reduce_dimension_of_vgg = Dense(128, activation='relu')
+        reduce_dimension_of_vgg = Dense(128, activation=relu)
         conc = concatenate(list(map(reduce_dimension_of_vgg, inputs)))
-        fc1 = Dense(1024)(conc)
-        fc2 = Dense(t**4)(fc1)
+        fc1 = Dense(1024, activation=relu)(conc)
+        fc2 = Dense(t**4, activation=relu)(fc1)
         #TODO: add sk instead
-        sm = Activation(softmax)(fc2)
+        sm = Activation(relu)(fc2)
 
         output = sm
         model = Model(inputs, [output, ])
@@ -99,6 +100,7 @@ class DeepPermutationNetwork:
 
     def _apply_pretrained_model(self, x):
         file_name = 'pre_trained_prediction_{}.npz'.format(hashlib.sha1(np.ascontiguousarray(np.array(x))).hexdigest())
+        maybe_make_directories('cache')
         file_path = os.path.join('cache', file_name)
 
         if os.path.exists(file_path):
@@ -121,13 +123,14 @@ class DeepPermutationNetwork:
 
         train_x = self._apply_pretrained_model(train_x)
         validation_x = self._apply_pretrained_model(validation_x)
+        maybe_make_directories('graphs')
 
         history = self._after_pre_trained.fit(
             train_x,
             train_y,
             batch_size=batch_size,
             epochs=epochs,
-            verbose=1,
+            verbose=2,
             callbacks=[
                 PlotCallback(['loss', 'val_loss'],
                              file_path='graphs/deep_permutation_network_{}_{}_loss.png'.format(
@@ -144,7 +147,7 @@ class DeepPermutationNetwork:
     def predict(self, x):
         x = self._convert_x_to_network_format(x)
         print('Predicing')
-        matrices = self._model.predict(x).reshape((-1, self._t ** 2, self._t ** 2))
+        matrices = self._model.predict(x, verbose=1).reshape((-1, self._t ** 2, self._t ** 2))
         permutations = list()
         print('Optimizing matrices:', end='', flush=True)
 
@@ -194,6 +197,7 @@ class DeepPermutationNetwork:
                 problem += p_matrix[i][j] - dsm[i][j] <= d_matrix[i][j]
                 problem += dsm[i][j] - p_matrix[i][j] <= d_matrix[i][j]
 
+        problem.writeLP('current-problem.lp')
         problem.solve()
         if LpStatusOptimal != problem.status:
             print('Warning: status is ', LpStatus[problem.status])
@@ -228,6 +232,8 @@ class DeepPermutationNetwork:
         return K.mean(K.square(y_true - y_predicted))
 
     def _get_model_checkpoint_file_path(self):
+        maybe_make_directories('saved_weights')
+
         return 'saved_weights/deep-permutation-network-best-{}-{}-model.h5'.format(
             self._t,
             self._image_type.value
@@ -241,23 +247,36 @@ class DeepPermutationNetwork:
 
     @staticmethod
     def _find_p_by_m(m):
-        dsm = DeepPermutationNetwork._find_dsm_by_m(m)
-        p = DeepPermutationNetwork._find_p_by_dsm_using_lp(dsm)
+        # dsm = DeepPermutationNetwork._find_dsm_by_m(m)
+        p = DeepPermutationNetwork._find_p_by_dsm_using_lp(m)
 
         return p
 
 
 if "__main__" == __name__:
-    number_of_samples = 20
-    number_of_samples = sys.maxsize
+    if 'debug' in sys.argv:
+        print('Debug')
+        number_of_samples = 20
+        epochs = 5
+    else:
+        print('Releast')
+        number_of_samples = sys.maxsize
+        epochs = 50
+
+    np.random.seed(42)
+
     width = 224
     height = 224
     batch_size = 32
-    epochs = 50
     force = False
 
-    for t in (2, 4, 5):
+    for t in (
+            2,
+            4,
+            5):
         for image_type in ImageType:
+            print('t={}. image type is {}'.format(t, image_type.value))
+
             (train_x, train_y), (validation_x, validation_y), (test_x, test_y) = \
                 DataProvider().get_train_validation_test_sets_as_array_of_shreds_and_array_of_permutations(
                 t,
@@ -274,7 +293,6 @@ if "__main__" == __name__:
                         batch_size=batch_size,
                         epochs=epochs)
 
-            print('t={}. image type is {}'.format(t, image_type.value))
             train_y_predicted = clf.predict(train_x)
             print('Train 0-1: {}'.format(numpy_zero_one_loss(train_y, train_y_predicted)))
             validation_y_predicted = clf.predict(validation_x)

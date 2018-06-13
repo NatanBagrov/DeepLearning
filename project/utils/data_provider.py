@@ -28,6 +28,8 @@ class DataProvider:
         return self._get_images_from_path(self._docs_path, num_samples, grayscaled, resize)
 
     def _get_images_from_path(self, path, num_samples, grayscaled, resize):
+        print('_get_images_from_path("{}")'.format(path))
+
         images = list()
         for f in os.listdir(path)[:num_samples]:
             file_path = os.path.join(path, f)
@@ -76,9 +78,9 @@ class DataProvider:
         y = np.repeat(np.arange(t**2).reshape(1, -1), len(images), axis=0)
 
         train_validation_x, test_x, train_validation_y, test_y = \
-            train_test_split(x, y, test_size=test_size)
+            train_test_split(x, y, random_state=23, test_size=test_size)
         train_x, validation_x, train_y, validation_y = \
-            train_test_split(train_validation_x, train_validation_y, train_size=train_size)
+            train_test_split(train_validation_x, train_validation_y, random_state=42, train_size=train_size)
 
         assert train_x.shape == (train_x.shape[0], t**2, height, width)
         assert train_y.shape == (train_x.shape[0], t**2)

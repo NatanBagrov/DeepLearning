@@ -1,6 +1,6 @@
 import math
 
-import matplotlib.pyplot as plt
+import utils.safe_pyplot as plt
 from keras.callbacks import Callback
 
 from utils.shredder import Shredder
