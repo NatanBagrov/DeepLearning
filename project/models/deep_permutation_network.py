@@ -4,6 +4,7 @@ import sys
 import os
 
 import numpy as np
+import tensorflow as tf
 from keras import Sequential, Model
 from keras.activations import relu, softmax
 from keras.applications.vgg16 import VGG16
@@ -41,8 +42,8 @@ class DeepPermutationNetwork:
         shared_vgg.layers.pop()
         print('shared vgg head')
 
-        for current_layer in shared_vgg.layers:
-            current_layer.trainable = False
+        # for current_layer in shared_vgg.layers:
+        #     current_layer.trainable = False
 
         shared_vgg = Sequential(shared_vgg.layers)
 
@@ -65,7 +66,7 @@ class DeepPermutationNetwork:
         output = sm
         model = Model(inputs, [output, ])
         model.summary()
-        optimizer = Adam(lr=1e-4)
+        optimizer = Adam(lr=1e-5)
         model.compile(optimizer,
                       loss=DeepPermutationNetwork._mse,
                       metrics=[])
@@ -103,32 +104,54 @@ class DeepPermutationNetwork:
         maybe_make_directories('cache')
         file_path = os.path.join('cache', file_name)
 
-        if os.path.exists(file_path):
+        if os.path.isfile(file_path):
             print('Using ', file_path)
             y = np.load(file_path)
+            y = [value for key, value in y.items()]
         else:
             y = self._pre_trained.predict(x)
             print('Saving ', file_path)
-            np.save(file_path, x)
+            np.savez(file_path, *y)
 
         return y
 
     def fit(self, train_x, train_y, validation_x, validation_y, batch_size=32, epochs=10, train_trail_only=True):
-        assert train_trail_only, 'Implement me'
+        number_of_samples = train_x.shape[0]
 
         train_x = self._convert_x_to_network_format(train_x)
         train_y = self._convert_y_to_network_format(train_y)
         validation_x = self._convert_x_to_network_format(validation_x)
         validation_y = self._convert_y_to_network_format(validation_y)
-
-        train_x = self._apply_pretrained_model(train_x)
-        validation_x = self._apply_pretrained_model(validation_x)
         maybe_make_directories('graphs')
 
-        history = self._after_pre_trained.fit(
-            train_x,
-            train_y,
-            batch_size=batch_size,
+        if train_trail_only:
+            model = self._after_pre_trained
+            train_x = self._apply_pretrained_model(train_x)
+            validation_x = self._apply_pretrained_model(validation_x)
+        else:
+            model = self._model
+
+
+        # history = self._after_pre_trained.fit(
+        #     train_x,
+        #     train_y,
+        #     batch_size=batch_size,
+        #     epochs=epochs,
+        #     verbose=2,
+        #     callbacks=[
+        #         PlotCallback(['loss', 'val_loss'],
+        #                      file_path='graphs/deep_permutation_network_{}_{}_loss.png'.format(
+        #                          self._t,
+        #                          self._image_type.value),
+        #                      show=True),
+        #         ModelCheckpoint(self._get_model_checkpoint_file_path(), save_best_only=True)
+        #     ],
+        #     validation_data=(validation_x, validation_y),
+        # )
+
+        history = model.fit_generator(
+            DeepPermutationNetwork._generate_batch(train_x, train_y, batch_size),
+            steps_per_epoch=(number_of_samples + batch_size - 1) // batch_size,
             epochs=epochs,
             verbose=2,
             callbacks=[
@@ -157,6 +180,7 @@ class DeepPermutationNetwork:
             assert np.all((p @ np.arange(self._t ** 2)) == current_permutation)
             permutations.append(current_permutation)
             print('.', end='', flush=True)
+        print()
 
         return permutations
 
@@ -252,6 +276,24 @@ class DeepPermutationNetwork:
 
         return p
 
+    @staticmethod
+    def _generate_batch(train_x, train_y, batch_size):
+        t_square = len(train_x)
+        number_of_samples, features_number = train_x[0].shape
+        assert (number_of_samples, t_square ** 2) == train_y.shape
+
+        while True:
+            permutation = np.random.permutation(number_of_samples)
+            train_x = [train_x[shred_index][permutation] for shred_index in range(t_square)]
+            train_y[permutation] = train_y[permutation]
+
+            for batch_offset in range(0, number_of_samples, batch_size):
+                permutation = np.random.permutation(t_square ** 2)
+                batch_x = [train_x[shred_index][batch_offset:batch_offset + batch_size] for shred_index in range(t_square)]
+                batch_y = train_y[batch_offset:batch_offset + batch_size, permutation]
+
+                yield (batch_x, batch_y)
+
 
 if "__main__" == __name__:
     if 'debug' in sys.argv:
@@ -259,16 +301,16 @@ if "__main__" == __name__:
         number_of_samples = 20
         epochs = 5
     else:
-        print('Releast')
+        print('Release')
         number_of_samples = sys.maxsize
-        epochs = 50
+        epochs = 200
 
     np.random.seed(42)
 
     width = 224
     height = 224
-    batch_size = 32
-    force = False
+    batch_size = 128
+    force = True
 
     for t in (
             2,
