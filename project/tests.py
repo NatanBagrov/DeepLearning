@@ -6,8 +6,10 @@ from unittest import TestCase, main as unittest_main
 import cv2
 import numpy as np
 
+from models.adjacent_crops_classifier import AdjacentCropsClassifier
 from models.fish_or_doc_classifier import FishOrDocClassifier
-from utils.data_manipulations import shred_shuffle_and_reconstruct, list_of_images_to_numpy
+from utils.data_manipulations import shred_shuffle_and_reconstruct, list_of_images_to_numpy, shred_and_resize_to, \
+    resize_to
 from utils.data_provider import DataProvider
 from utils.shredder import Shredder
 
@@ -93,6 +95,38 @@ class FishOrDocClassifierTests(TestCase):
         print('Fish accuracy {}/{} ({:.3f})'.format(results, num_fish, results / num_fish))
         results = num_docs - np.sum(fod_clf.is_fish(docs))
         print('Docs accuracy {}/{} ({:.3f})'.format(results, num_docs, results / num_docs))
+
+
+class AdjacentCropsClassifierTests(TestCase):
+    def prepare_data(self, clf):
+        resize_shape = (clf.get_input_shape()[0], clf.get_input_shape()[0])
+        num_samples = 1300
+        dp = DataProvider()
+        fish = dp.get_fish_images(num_samples=num_samples)[1000:]
+        shredded = [resize_to(Shredder.shred(x, 4), resize_shape) for x in fish]
+        return shredded
+
+    def test_accuracy_find_best_fit(self):
+        ac_clf = AdjacentCropsClassifier(
+            data_provider=DataProvider(),
+            weights_file=os.path.join(os.getcwd(), 'models', 'saved_weights',
+                                      'adjacent_crops_clf_weights.05-0.924.h5'))
+        x_test = self.prepare_data(ac_clf)
+        sum = 0.0
+        for image in x_test:
+            input = list(image / 255)
+            for crop_idx in range(len(input)):
+                res = ac_clf.get_adjacent_probabilities(input[crop_idx], input)
+                neighbor_idx = np.argmax(res)
+                prob = res[neighbor_idx]
+                if crop_idx % 4 == 3:
+                    sum = sum + 1 if prob < 0.5 else sum
+                    continue
+                sum = sum + 1 if crop_idx + 1 == neighbor_idx and prob > 0.5 else sum
+        print(sum)
+        print(sum/(len(x_test) * (4 ** 2)))
+
+
 
 
 if __name__ == '__main__':

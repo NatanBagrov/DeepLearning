@@ -1,4 +1,5 @@
 import math
+import os
 
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
@@ -13,8 +14,8 @@ class Visualizer:
         grid_color = 255
         img = Shredder.reconstruct(crops_list)
         if t > 1:
-            dx = img.shape[0]//t
-            dy = img.shape[1]//t
+            dx = img.shape[0] // t
+            dy = img.shape[1] // t
             img[:, ::dy] = grid_color
             img[::dx, :] = grid_color
         plt.imshow(img, cmap='gray')
@@ -67,3 +68,33 @@ class PlotCallback(Callback):
 
         if self._show:
             plt.show()
+
+
+def visualize_model_history(history, file_name_prefix=None, show=False):
+    save_dir = os.path.join(os.getcwd(), 'training_visualization')
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'validation'], loc='upper left')
+    if show:
+        plt.show()
+    if file_name_prefix is not None:
+        file_name = file_name_prefix + 'accuracy.png'
+        plt.savefig(os.path.join(save_dir, file_name))
+    # summarize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'validation'], loc='upper left')
+    if show:
+        plt.show()
+    if file_name_prefix is not None:
+        file_name = file_name_prefix + 'loss.png'
+        plt.savefig(os.path.join(save_dir, file_name))
