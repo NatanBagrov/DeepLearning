@@ -15,12 +15,7 @@ import numpy as np
 from utils.data_provider import DataProvider
 from utils.visualizer import PlotCallback
 from utils.data_manipulations import shred_and_resize_to
-
-
-class ImageType(Enum):
-    IMAGES = 'images'
-    DOCUMENTS ='documents'
-
+from utils.image_type import ImageType
 
 class OnePictureClassify:
     def __init__(self, t, width, height,
