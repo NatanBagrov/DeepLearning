@@ -21,11 +21,13 @@ class ComparatorCNN:
     """
     Network checks if one picture lies to the left of another
     """
-    def __init__(self, t, width, height, image_type: ImageType):
+    def __init__(self, t, width, height, image_type: ImageType, mean=None, std=None):
         self._t = t
         self._width = width
         self._height = height
         self._image_type = image_type
+        self._mean = mean
+        self._std = std
         self._model = ComparatorCNN._build_model(width, height,
                                                  post_activation_bn=True)
 
@@ -192,12 +194,12 @@ class ComparatorCNN:
             verbose=2,
             callbacks=[
                 PlotCallback(['loss', 'val_loss'],
-                             file_path='graphs/one_picture_classify_{}_{}_loss.png'.format(
+                             file_path='graphs/comparator_cnn_{}_{}_loss.png'.format(
                                  self._t,
                                  self._image_type.value),
                              show=True),
                 PlotCallback(['binary_accuracy', 'val_binary_accuracy'],
-                             file_path='graphs/one_picture_classify_{}_{}_acc.png'.format(
+                             file_path='graphs/comparator_cnn_{}_{}_acc.png'.format(
                                  self._t,
                                  self._image_type.value),
                              show=True),
@@ -268,6 +270,7 @@ class ComparatorCNN:
         print('Mean before standardiztion is {}. Std is {}. Shape is {}'.format(np.mean(x), np.std(x), np.shape(x)))
         y_true = np.argmax(y, axis=-1)
         y_predicted = self.predict(x, standardise=standardise)
+        assert y_true.shape == y_predicted.shape
 
         return np.mean(y_true == y_predicted)
 
@@ -393,12 +396,23 @@ if __name__ == '__main__':
     if 0 == len(ts):
         ts = (2, 4, 5)
 
+    image_types = list()
+
+    if 'image' in sys.argv:
+        image_types.append(ImageType.IMAGES)
+
+    if 'document' in sys.argv:
+        image_types.append(ImageType.IMAGES)
+
+    if 0 == len(image_types):
+        image_types= ImageType
+
     np.random.seed(42)
 
     width = 224
     height = 224
     batch_size = 32
-    force = True
+    force = False
 
     for t in ts:
         for image_type in ImageType:
@@ -413,11 +427,17 @@ if __name__ == '__main__':
             images_train, images_validation = train_test_split(images, random_state=42)
 
             clf = ComparatorCNN(t, width, height, image_type)
-            clf.fit_generator(
-                images_train,
-                batch_size,
-                epochs,
-                images_validation,
-            )
+
+            if force:
+                clf.fit_generator(
+                    images_train,
+                    batch_size,
+                    epochs,
+                    images_validation,
+                )
+            else:
+                clf.load_weights()
+                clf._fit_standardisation(images_train)
+
             print('Train 0-1:', clf.evaluate(images_train))
             print('Validation 0-1:', clf.evaluate(images_validation))
