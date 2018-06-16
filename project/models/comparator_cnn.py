@@ -252,14 +252,20 @@ class ComparatorCNN:
         if standardise:
             tensor = self.standardise(tensor)
 
+        print('Mean after standardization is {}, std is {}, shape is {}'.format(np.mean(tensor), np.std(tensor), np.shape(tensor)))
+
         soft_prediction = self._model.predict(tensor)
         hard_prediction = np.argmax(soft_prediction, axis=-1)
 
         return hard_prediction
 
     def evaluate(self, images: list, standardise=True):
+        print('Mean of evalutaion images is {}, std is {}'.format(
+            ComparatorCNN._mean_of_a_list(images),
+            ComparatorCNN._std_of_a_list(images)))True in evaluation dataset
         x, y = next(ComparatorCNN._generate_regular_shreds_stratified(images, self._width, self._height, self._t))
         print('True in evaluation dataset is {} * {}', np.mean(y[1]), y.shape[0])
+        print('Mean before standardiztion is {}. Std is {}. Shape is {}'.format(np.mean(x), np.std(x), np.shape(x)))
         y_true = np.argmax(y, axis=-1)
         y_predicted = self.predict(x, standardise=standardise)
 
