@@ -262,7 +262,7 @@ class ComparatorCNN:
     def evaluate(self, images: list, standardise=True):
         print('Mean of evalutaion images is {}, std is {}'.format(
             ComparatorCNN._mean_of_a_list(images),
-            ComparatorCNN._std_of_a_list(images)))True in evaluation dataset
+            ComparatorCNN._std_of_a_list(images)))
         x, y = next(ComparatorCNN._generate_regular_shreds_stratified(images, self._width, self._height, self._t))
         print('True in evaluation dataset is {} * {}', np.mean(y[1]), y.shape[0])
         print('Mean before standardiztion is {}. Std is {}. Shape is {}'.format(np.mean(x), np.std(x), np.shape(x)))
@@ -270,6 +270,12 @@ class ComparatorCNN:
         y_predicted = self.predict(x, standardise=standardise)
 
         return np.mean(y_true == y_predicted)
+
+    def load_weights(self, file_path=None):
+        if file_path is None:
+            file_path = self._get_model_checkpoint_file_path()
+
+        self._model.load_weights(file_path)
 
     def _get_model_checkpoint_file_path(self):
         return 'saved_weights/comparator-best-{}-{}-model.h5'.format(
