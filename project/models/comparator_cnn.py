@@ -305,9 +305,15 @@ class ComparatorCNN:
         return ComparatorCNN._prepare_left_right_check(top, bottom)
 
     @staticmethod
-    def _generate_regular_shreds_stratified(images:list, width, height, t, batch_size=None):
+    def _generate_regular_shreds_stratified(images: list, width, height, t, batch_size=None):
         number_of_samples = len(images)
         sample_index_to_shred_index_to_image = shred_and_resize_to(images, t, (width, height))
+        print('Mean: {} std: {} shape: {} type: {}'.format(
+            np.mean(sample_index_to_shred_index_to_image),
+            np.std(sample_index_to_shred_index_to_image),
+            np.shape(sample_index_to_shred_index_to_image),
+            np.array(sample_index_to_shred_index_to_image).dtype
+        ))
         assert (number_of_samples, t ** 2, height, width) == sample_index_to_shred_index_to_image.shape
         probabilities_regular_pattern = np.full((t * t), 1.0 / (2.0 * (t**2 - 1.0)))
         probabilities_edge = np.full((t * t), 1.0 / (t ** 2))
@@ -417,7 +423,7 @@ if __name__ == '__main__':
     width = 224
     height = 224
     batch_size = 32
-    force = False
+    force = True
 
     for t in ts:
         for image_type in ImageType:
