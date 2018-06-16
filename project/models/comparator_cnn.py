@@ -233,7 +233,12 @@ class ComparatorCNN:
         return std
 
     def standardise(self, images):
-        images = copy.deepcopy(images)
+        if isinstance(images, list):
+            images = copy.deepcopy(images)
+        elif isinstance(images, np.ndarray):
+            images = np.copy(images).astype(np.float)
+        else:
+            assert False
 
         for index, current_image in enumerate(images):
             images[index] = (current_image - self._mean) / self._std
@@ -266,7 +271,7 @@ class ComparatorCNN:
             ComparatorCNN._mean_of_a_list(images),
             ComparatorCNN._std_of_a_list(images)))
         x, y = next(ComparatorCNN._generate_regular_shreds_stratified(images, self._width, self._height, self._t))
-        print('True in evaluation dataset is {} * {}', np.mean(y[1]), y.shape[0])
+        print('True in evaluation dataset is {} * {}'.format(np.mean(y[1]), y.shape[0]))
         print('Mean before standardiztion is {}. Std is {}. Shape is {}'.format(np.mean(x), np.std(x), np.shape(x)))
         y_true = np.argmax(y, axis=-1)
         y_predicted = self.predict(x, standardise=standardise)
@@ -402,10 +407,10 @@ if __name__ == '__main__':
         image_types.append(ImageType.IMAGES)
 
     if 'document' in sys.argv:
-        image_types.append(ImageType.IMAGES)
+        image_types.append(ImageType.DOCUMENTS)
 
     if 0 == len(image_types):
-        image_types= ImageType
+        image_types = ImageType
 
     np.random.seed(42)
 
