@@ -1,5 +1,6 @@
 import math
 import sys
+from timeit import timeit
 
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -30,7 +31,7 @@ class SolverWithComparator:
             shreds,
             comparator.predict_is_top_probability)
 
-        prediction = SolverWithComparator._predict_with_lp(
+        prediction = SolverWithComparator._predict_greedy(
             left_index_to_right_index_to_probability,
             top_index_to_bottom_index_to_probability
         )
@@ -108,7 +109,7 @@ class SolverWithComparator:
         t = int(round(math.sqrt(t_square)))
         assert t ** 2 == t_square
 
-        problem = LpProblem("permutation", LpMaximize)
+        problem = LpProblem(name="permutation", sense=LpMaximize)
         index_to_row_to_column = LpVariable.matrix(
             'index_to_row_to_column',
             (list(range(t_square)), list(range(t)), list(range(t))),
@@ -164,7 +165,7 @@ class SolverWithComparator:
         problem += t * (t - 1) == lpSum(SolverWithComparator._flatten(top_index_to_bottom_index_to_is_top))
 
         problem.writeLP('current-problem.lp')
-        problem.solve()
+        print('took {}s'.format(timeit('problem.solve()', number=1)))
 
         if LpStatusOptimal != problem.status:
             print('Warning: status is ', LpStatus[problem.status])
@@ -246,7 +247,61 @@ class SolverWithComparator:
         return result
 
     @staticmethod
-    def _predict_greedy():
+    def _predict_greedy(left_index_to_right_index_to_probability,
+                         top_index_to_bottom_index_to_probability):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        t = int(round(math.sqrt(t_square)))
+        assert t**2 == t_square
+        top_left_index = -1
+        top_left_probability = float("inf")
+
+        for second_index in range(t_square):
+            current_probability = max(max(
+                left_index_to_right_index_to_probability[first_index][second_index],
+                top_index_to_bottom_index_to_probability[first_index][second_index]
+            ) for first_index in range(t_square))
+
+            if current_probability < top_left_probability:
+                top_left_probability = current_probability
+                top_left_index = second_index
+
+        order = [top_left_index, ]
+        crop_position_in_original_image = [-1, ] * t_square
+        crop_position_in_original_image[top_left_index] = 0
+
+        for row in range(t):
+            for column in range(1 if 0 == row else 0, t):
+                best_second_index = -1
+                best_second_probability = float("-inf")
+
+                for second_index in range(t_square):
+                    if second_index not in order: # Should I?
+                        if 0 == row:
+                            is_bottom_probability = 1.0
+                        else:
+                            top_row = row - 1
+                            top_column = column
+                            top_index = order[top_row * t + top_column]
+                            is_bottom_probability = top_index_to_bottom_index_to_probability[top_index][second_index]
+
+                        if 0 == column:
+                            is_right_probability = 1.0
+                        else:
+                            left_row = row
+                            left_column = column - 1
+                            left_index = order[left_row * t + left_column]
+                            is_right_probability = left_index_to_right_index_to_probability[left_index][second_index]
+
+                        current_probability = is_bottom_probability * is_right_probability
+
+                        if current_probability > best_second_probability:
+                            best_second_probability = current_probability
+                            best_second_index = second_index
+
+                crop_position_in_original_image[best_second_index] = len(order)
+                order.append(best_second_index)
+
+        return crop_position_in_original_image
 
 
 def main():
