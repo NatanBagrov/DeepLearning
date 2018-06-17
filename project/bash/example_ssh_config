@@ -1,0 +1,12 @@
+# Put the code above in ~/.ssh/config
+# Change volodpol to your username 
+# It could be, that you need to use authentification without password (search it)
+# From your computer to cls2 and from cls2 to rishon
+Host csl2
+    User volodpol
+    Hostname csl2.cs.technion.ac.il
+    IdentityFile ~/.ssh/csl2.cs.technion.ac.il.rsa
+Host rishon
+    User volodpol
+    Hostname rishon.cs.technion.ac.il
+    ProxyCommand ssh -i ~/.ssh/id_rsa csl2 -W %h:%p
