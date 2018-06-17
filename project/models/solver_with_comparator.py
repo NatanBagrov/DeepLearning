@@ -51,7 +51,7 @@ class SolverWithComparator:
                     shreds_permuted = shred_index_to_image[permutation]
                     permutation_predicted = self.predict(shreds_permuted)
                     current_accuracy = np.average(permutation_predicted == permutation)
-                    print('For {} 0-1 is {}'.format(sample_index, current_accuracy))
+                    print('For {}-{} 0-1 is {}'.format(epoch, sample_index, current_accuracy))
                     accuracies.append(current_accuracy)
 
             current_accuracy = np.average(accuracies)
@@ -245,6 +245,9 @@ class SolverWithComparator:
 
         return result
 
+    @staticmethod
+    def _predict_greedy():
+
 
 def main():
     if 'debug' in sys.argv:
@@ -286,7 +289,7 @@ def main():
     width = 224
     height = 224
 
-    for image_type in ImageType:
+    for image_type in image_types:
         print(image_type.value)
 
         if image_type == ImageType.IMAGES:

@@ -311,7 +311,7 @@ class ComparatorCNN:
         return self
 
     def _get_model_checkpoint_file_path(self):
-        return 'saved_weights/_comparator-best-{}-{}-model.h5'.format(
+        return 'saved_weights/comparator-best-{}-{}-model.h5'.format(
             self._t,
             self._image_type.value
         )
