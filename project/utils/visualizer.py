@@ -25,6 +25,26 @@ class Visualizer:
             plt.savefig(save_path)
         plt.clf()
 
+    @staticmethod
+    def visualize_tensor(tensor, title=None, show=False, save_path=None):
+        plt.clf()
+
+        for row in range(tensor.shape[0]):
+            for column in range(tensor.shape[-1]):
+                plt.subplot(tensor.shape[0], tensor.shape[-1], 1 + row * tensor.shape[-1] + column)
+
+                if title is not None:
+                    plt.title(title[row])
+
+                plt.imshow(tensor[row, ..., column], cmap='gray')
+                plt.axis('off')
+
+        if show:
+            plt.show()
+
+        if save_path is not None:
+            plt.savefig(save_path)
+
 
 class PlotCallback(Callback):
     def __init__(self, keys, file_path=None, show=False):

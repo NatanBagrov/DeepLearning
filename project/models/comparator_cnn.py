@@ -12,7 +12,7 @@ from keras.metrics import binary_accuracy
 from keras.callbacks import ModelCheckpoint, Callback
 
 from utils.image_type import ImageType
-from utils.visualizer import PlotCallback
+from utils.visualizer import PlotCallback, Visualizer
 from utils.data_manipulations import shred_and_resize_to
 from utils.data_provider import DataProvider
 
@@ -30,6 +30,14 @@ class ComparatorCNN:
         self._std = std
         self._model = ComparatorCNN._build_model(width, height,
                                                  post_activation_bn=True)
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
 
     @staticmethod
     def _build_model(width, height,
@@ -149,9 +157,9 @@ class ComparatorCNN:
         self._fit_standardisation(images_train)
         images_train = self.standardise(images_train)
         images_validation = self.standardise(images_validation)
-        train_generator = ComparatorCNN._generate_regular_shreds_stratified(images_train, self._width, self._height, self._t, batch_size)
+        train_generator = ComparatorCNN._generate_regular_shreds_stratified(images_train, self.width, self.height, self._t, batch_size)
         # generator = ComparatorCNN.generate_all_shreds(images)
-        validation_generator = ComparatorCNN._generate_regular_shreds_stratified(images_validation, self._width, self._height, self._t, batch_size)
+        validation_generator = ComparatorCNN._generate_regular_shreds_stratified(images_validation, self.width, self.height, self._t, batch_size)
         validation_data = next(validation_generator)
         print('Part of true in validation dataset is ', np.mean(validation_data[1][1]), ' of ', validation_data[1].shape[0])
         steps_per_epoch = 2 * len(images_train) * (self._t ** 2) / batch_size
@@ -204,7 +212,7 @@ class ComparatorCNN:
                                  self._image_type.value),
                              show=True),
                 ModelCheckpoint(self._get_model_checkpoint_file_path(),
-                                monitor='val_binary_accuracy',
+                                monitor='val_loss',
                                 save_best_only=True),
                 UpdateMonitorCallback(False)
 
@@ -213,12 +221,15 @@ class ComparatorCNN:
         )
 
     def _fit_standardisation(self, images):
+        # TODO: save it somewhere!!
         self._mean = ComparatorCNN._mean_of_a_list(images)
         self._std = ComparatorCNN._std_of_a_list(images)
 
         print('Mean is {}. Std is {}'.format(self._mean, self._std))
 
         assert not np.isclose(self._std, 0.0), 'Variance is too low'
+
+        return self
 
     @staticmethod
     def _mean_of_a_list(images_list):
@@ -245,32 +256,44 @@ class ComparatorCNN:
 
         return images
 
-    def predict_is_left(self, left, right, standardise=True):
+    def predict_is_left_probability(self, left, right, standardise=True):
         tensor = ComparatorCNN._prepare_left_right_check(left, right)
 
-        return self.predict(tensor, standardise=standardise)
+        return self.predict_probability(tensor, standardise=standardise)
 
-    def predict_is_top(self, top, bottom, standardise=True):
+    def predict_is_top_probability(self, top, bottom, standardise=True):
         tensor = ComparatorCNN._prepare_top_bottom_check(top, bottom)
 
-        return self.predict(tensor, standardise=standardise)
+        return self.predict_probability(tensor, standardise=standardise)
 
     def predict(self, tensor, standardise=True):
+        soft_prediction = self.predict_probability(tensor, standardise=standardise)
+        hard_prediction = np.argmax(soft_prediction, axis=-1)
+
+        return hard_prediction
+
+    def predict_probability(self, tensor, standardise=True):
         if standardise:
             tensor = self.standardise(tensor)
 
         print('Mean after standardization is {}, std is {}, shape is {}'.format(np.mean(tensor), np.std(tensor), np.shape(tensor)))
 
-        soft_prediction = self._model.predict(tensor)
-        hard_prediction = np.argmax(soft_prediction, axis=-1)
+        soft_prediction = self._model.predict(tensor, verbose=1)
 
-        return hard_prediction
+        visualize = False
+
+        if visualize:
+            indices = [0 * 4 + 1, 2 * 4 + 3] + [0 * 4 + 2, 1 * 4 + 3]
+            Visualizer.visualize_tensor(tensor[indices], title=list(map(str, soft_prediction[indices, 1])), show=True)
+            print('visualized')
+
+        return soft_prediction
 
     def evaluate(self, images: list, standardise=True):
         print('Mean of evalutaion images is {}, std is {}'.format(
             ComparatorCNN._mean_of_a_list(images),
             ComparatorCNN._std_of_a_list(images)))
-        x, y = next(ComparatorCNN._generate_regular_shreds_stratified(images, self._width, self._height, self._t))
+        x, y = next(ComparatorCNN._generate_regular_shreds_stratified(images, self.width, self.height, self._t))
         print('True in evaluation dataset is {} * {}'.format(np.mean(y[1]), y.shape[0]))
         print('Mean before standardiztion is {}. Std is {}. Shape is {}'.format(np.mean(x), np.std(x), np.shape(x)))
         y_true = np.argmax(y, axis=-1)
@@ -285,8 +308,10 @@ class ComparatorCNN:
 
         self._model.load_weights(file_path)
 
+        return self
+
     def _get_model_checkpoint_file_path(self):
-        return 'saved_weights/comparator-best-{}-{}-model.h5'.format(
+        return 'saved_weights/_comparator-best-{}-{}-model.h5'.format(
             self._t,
             self._image_type.value
         )
@@ -302,7 +327,9 @@ class ComparatorCNN:
         top = np.rot90(top, axes=(-2, -1))
         bottom = np.rot90(bottom, axes=(-2, -1))
 
-        return ComparatorCNN._prepare_left_right_check(top, bottom)
+        tensor = ComparatorCNN._prepare_left_right_check(top, bottom)
+
+        return tensor
 
     @staticmethod
     def _generate_regular_shreds_stratified(images: list, width, height, t, batch_size=None):
@@ -383,7 +410,7 @@ class ComparatorCNN:
                 yield x, y
 
 
-if __name__ == '__main__':
+def main():
     if 'debug' in sys.argv:
         print('Debug')
         number_of_samples = 20
@@ -402,7 +429,7 @@ if __name__ == '__main__':
         ts.append(4)
 
     if '5' in sys.argv:
-        ts = [5,]
+        ts = [5, ]
 
     if 0 == len(ts):
         ts = (2, 4, 5)
@@ -418,15 +445,21 @@ if __name__ == '__main__':
     if 0 == len(image_types):
         image_types = ImageType
 
+    if 'train' in sys.argv:
+        force = True
+    elif 'evaluate' in sys.argv:
+        force = False
+    else:
+        force = False
+
     np.random.seed(42)
 
     width = 224
     height = 224
     batch_size = 32
-    force = True
 
     for t in ts:
-        for image_type in ImageType:
+        for image_type in image_types:
             print('t={}. image type is {}'.format(t, image_type.value))
 
             if image_type == ImageType.IMAGES:
@@ -452,3 +485,7 @@ if __name__ == '__main__':
 
             print('Train 0-1:', clf.evaluate(images_train))
             print('Validation 0-1:', clf.evaluate(images_validation))
+
+
+if __name__ == '__main__':
+    main()
