@@ -259,7 +259,7 @@ class SolverWithComparator:
             current_probability = max(max(
                 left_index_to_right_index_to_probability[first_index][second_index],
                 top_index_to_bottom_index_to_probability[first_index][second_index]
-            ) for first_index in range(t_square))
+            ) for first_index in range(t_square) if first_index != second_index)
 
             if current_probability < top_left_probability:
                 top_left_probability = current_probability
@@ -364,10 +364,10 @@ def main():
 
         clf = SolverWithComparator(t_to_comparator)
         print('Train: ')
-        accuracy = clf.evaluate(images_train, epochs=epochs)
+        accuracy = clf.evaluate(images_train, epochs=epochs, ts=ts)
         print('Train 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
         print('Validation: ')
-        accuracy = clf.evaluate(images_validation, epochs=epochs)
+        accuracy = clf.evaluate(images_validation, epochs=epochs, ts=ts)
         print('Validation 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
 
 
