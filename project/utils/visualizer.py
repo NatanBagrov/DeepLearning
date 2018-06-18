@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import utils.safe_pyplot as plt
 from keras.callbacks import Callback
 

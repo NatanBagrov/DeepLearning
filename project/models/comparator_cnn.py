@@ -132,7 +132,7 @@ class ComparatorCNN:
             output_layer()
         )
 
-        model.summary()
+        # model.summary()
 
         optimizer = Adam(
             lr=learning_rate,
@@ -276,9 +276,10 @@ class ComparatorCNN:
         if standardise:
             tensor = self.standardise(tensor)
 
-        print('Mean after standardization is {}, std is {}, shape is {}'.format(np.mean(tensor), np.std(tensor), np.shape(tensor)))
+        # print('Mean after standardization is {}, std is {}, shape is {}'.format(np.mean(tensor), np.std(tensor), np.shape(tensor)))
 
-        soft_prediction = self._model.predict(tensor, verbose=1)
+        soft_prediction = self._model.predict(tensor,
+                                              verbose=0)
 
         visualize = False
 

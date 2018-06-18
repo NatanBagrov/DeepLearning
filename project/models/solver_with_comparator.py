@@ -10,6 +10,7 @@ from utils.shredder import Shredder
 from utils.data_manipulations import resize_to, shred_and_resize_to
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
+from utils.visualizer import Visualizer
 from models.comparator_cnn import ComparatorCNN
 
 
@@ -49,10 +50,9 @@ class SolverWithComparator:
                 for sample_index, shred_index_to_image in enumerate(sample_index_to_shred_index_to_image):
                     permutation = np.random.permutation(t ** 2)
                     # permutation = np.arange(t ** 2)
-                    shreds_permuted = shred_index_to_image[permutation]
-                    permutation_predicted = self.predict(shreds_permuted)
-                    current_accuracy = np.average(permutation_predicted == permutation)
-                    print('For {}-{} 0-1 is {}'.format(epoch, sample_index, current_accuracy))
+                    current_accuracy = self.evaluate_image_for_permutation(shred_index_to_image,
+                                                                           permutation,
+                                                                           sample_index)
                     accuracies.append(current_accuracy)
 
             current_accuracy = np.average(accuracies)
@@ -60,6 +60,36 @@ class SolverWithComparator:
             index_to_accuracy.append(current_accuracy)
 
         return np.average(index_to_accuracy)
+
+    def evaluate_image_for_permutation(self, shred_index_to_image, permutation, sample_index=None):
+        t = int(round(math.sqrt(len(permutation))))
+
+        if isinstance(shred_index_to_image, str):
+            shred_index_to_image = DataProvider.read_image(shred_index_to_image)
+
+        if np.shape(shred_index_to_image)[0] != len(permutation):
+            shred_index_to_image = Shredder.shred(shred_index_to_image, t)
+
+        shreds_permuted = shred_index_to_image[permutation]
+        permutation_predicted = self.predict(shreds_permuted)
+        current_accuracy = np.average(permutation_predicted == permutation)
+
+        if not np.isclose(current_accuracy, 1.0):
+            print('On #{} 0-1 is {}: {}!={}'.format(sample_index, current_accuracy,
+                                                    permutation, permutation_predicted))
+            visualize = True
+
+            if visualize:
+                Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation)],
+                                           show=True,
+                                           save_path='original.png')
+                Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation_predicted)],
+                                           show=True,
+                                           save_path='restored.png')
+                print('visualized')
+
+        return current_accuracy
+
 
     @staticmethod
     def _get_first_index_to_second_index_to_probability(images, predict_probability):
@@ -248,7 +278,7 @@ class SolverWithComparator:
 
     @staticmethod
     def _predict_greedy(left_index_to_right_index_to_probability,
-                         top_index_to_bottom_index_to_probability):
+                        top_index_to_bottom_index_to_probability):
         t_square = left_index_to_right_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
         assert t**2 == t_square
@@ -352,9 +382,10 @@ def main():
         else:
             get_images = DataProvider().get_docs_images
 
-        images = get_images(num_samples=number_of_samples)
-        images_train, images_validation = train_test_split(images, random_state=42)
+        images, names = get_images(num_samples=number_of_samples, return_names=True)
 
+        images_train, images_validation, names_train, names_validation = train_test_split(images, names,
+                                                                                          random_state=42)
         t_to_comparator = {
             t: ComparatorCNN(t, width, height, image_type)
                 ._fit_standardisation(images_train)
@@ -363,13 +394,34 @@ def main():
         }
 
         clf = SolverWithComparator(t_to_comparator)
-        print('Train: ')
+        print('Train: ', names_train)
         accuracy = clf.evaluate(images_train, epochs=epochs, ts=ts)
         print('Train 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
-        print('Validation: ')
+        print('Validation: ', names_validation)
         accuracy = clf.evaluate(images_validation, epochs=epochs, ts=ts)
         print('Validation 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
 
 
+def debug():
+    names_train = ['n01440764_11593.JPEG', 'n01440764_11602.JPEG', 'n01440764_4562.JPEG', 'n01440764_5148.JPEG', 'n01440764_11897.JPEG', 'n01440764_29057.JPEG', 'n01440764_22135.JPEG', 'n01440764_8003.JPEG', 'n01440764_3566.JPEG', 'n01440764_44.JPEG', 'n01440764_10910.JPEG', 'n01440764_10382.JPEG', 'n01440764_6508.JPEG', 'n01440764_10290.JPEG', 'n01440764_910.JPEG']
+    images_train, names_train = DataProvider.read_images('../images', names_train)
+    indices = [4, 5, 13]
+    images_validation = [images_train[index] for index in indices]
+    index = 4
+    t = 4
+    permutation = [2, 8, 4, 12, 0, 10, 6, 5, 7, 3, 13, 15, 11, 9, 1, 14]
+    width = 224
+    height = 224
+    image_type = ImageType.IMAGES
+
+    cmp = ComparatorCNN(t, width, height, image_type)\
+        ._fit_standardisation(images_train)\
+        .load_weights()
+
+    slv = SolverWithComparator({t: cmp})
+    slv.evaluate_image_for_permutation(images_validation[0], permutation, sample_index=index)
+
+
 if __name__ == '__main__':
+    debug()
     main()
