@@ -32,7 +32,7 @@ class SolverWithComparator:
             shreds,
             comparator.predict_is_top_probability)
 
-        prediction = SolverWithComparator._predict_greedy(
+        prediction = SolverWithComparator._predict_greedy_iterating_on_top_left(
             left_index_to_right_index_to_probability,
             top_index_to_bottom_index_to_probability
         )
@@ -77,7 +77,7 @@ class SolverWithComparator:
         if not np.isclose(current_accuracy, 1.0):
             print('On #{} 0-1 is {}: {}!={}'.format(sample_index, current_accuracy,
                                                     permutation, permutation_predicted))
-            visualize = True
+            visualize = False
 
             if visualize:
                 Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation)],
@@ -89,7 +89,6 @@ class SolverWithComparator:
                 print('visualized')
 
         return current_accuracy
-
 
     @staticmethod
     def _get_first_index_to_second_index_to_probability(images, predict_probability):
@@ -295,6 +294,44 @@ class SolverWithComparator:
                 top_left_probability = current_probability
                 top_left_index = second_index
 
+        crop_position_in_original_image = SolverWithComparator.continue_greedy_given_top_left(
+            top_left_index,
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability
+        )
+
+        return crop_position_in_original_image
+
+    @staticmethod
+    def _predict_greedy_iterating_on_top_left(left_index_to_right_index_to_probability,
+                                              top_index_to_bottom_index_to_probability):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        best_objective = float("-inf")
+        best_crop_position_in_original_image = list(range(t_square))
+
+        for top_left_index in range(t_square):
+            current_crop_position_in_original_image = SolverWithComparator._continue_greedy_given_top_left(
+                top_left_index,
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability)
+
+            current_objective, current_log_objective = \
+                SolverWithComparator._compute_objective(current_crop_position_in_original_image,
+                                                        left_index_to_right_index_to_probability,
+                                                        top_index_to_bottom_index_to_probability)
+
+            if current_log_objective > best_objective:
+                best_objective = current_log_objective
+                best_crop_position_in_original_image = current_crop_position_in_original_image
+
+        return best_crop_position_in_original_image
+
+    @staticmethod
+    def _continue_greedy_given_top_left(top_left_index,
+                                       left_index_to_right_index_to_probability,
+                                       top_index_to_bottom_index_to_probability):
+        t_square = top_index_to_bottom_index_to_probability.shape[0]
+        t = int(round(math.sqrt(t_square)))
         order = [top_left_index, ]
         crop_position_in_original_image = [-1, ] * t_square
         crop_position_in_original_image[top_left_index] = 0
@@ -305,7 +342,7 @@ class SolverWithComparator:
                 best_second_probability = float("-inf")
 
                 for second_index in range(t_square):
-                    if second_index not in order: # Should I?
+                    if second_index not in order:  # TODO: Should I?
                         if 0 == row:
                             is_bottom_probability = 1.0
                         else:
@@ -332,6 +369,38 @@ class SolverWithComparator:
                 order.append(best_second_index)
 
         return crop_position_in_original_image
+
+    @staticmethod
+    def _compute_objective(crop_position_in_original_image,
+                           left_index_to_right_index_to_probability,
+                           top_index_to_bottom_index_to_probability):
+        t = int(round(math.sqrt(len(crop_position_in_original_image))))
+
+        row_to_column_to_crop_index = np.empty((t, t), dtype=int)
+
+        for crop_index, crop_position in enumerate(crop_position_in_original_image):
+            row = crop_position // t
+            column = crop_position % t
+            row_to_column_to_crop_index[row][column] = crop_index
+
+        objective = 1.0
+        log_objective = 0.0
+
+        for row in range(t):
+            for column in range(t):
+                if row + 1 < t:
+                    top_index = row_to_column_to_crop_index[row][column]
+                    bottom_index = row_to_column_to_crop_index[row + 1][column]
+                    objective *= top_index_to_bottom_index_to_probability[top_index][bottom_index]
+                    log_objective += math.log(top_index_to_bottom_index_to_probability[top_index][bottom_index])
+
+                if column + 1 < t:
+                    left_index = row_to_column_to_crop_index[row][column]
+                    right_index = row_to_column_to_crop_index[row][column + 1]
+                    objective *= left_index_to_right_index_to_probability[left_index][right_index]
+                    log_objective += math.log(left_index_to_right_index_to_probability[left_index][right_index])
+
+        return objective, log_objective
 
 
 def main():
@@ -419,9 +488,9 @@ def debug():
         .load_weights()
 
     slv = SolverWithComparator({t: cmp})
-    slv.evaluate_image_for_permutation(images_validation[0], permutation, sample_index=index)
-
+    score = slv.evaluate_image_for_permutation(images_validation[0], permutation, sample_index=index)
+    print('done with ', score)
 
 if __name__ == '__main__':
-    debug()
+    # debug()
     main()
