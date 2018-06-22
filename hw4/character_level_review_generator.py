@@ -118,21 +118,21 @@ class CharacterLevelReviewGenerator:
         plot_directory_path = 'models/'
         os.makedirs(plot_directory_path, exist_ok=True)
         plot_file_path = os.path.join(plot_directory_path, '{}.png'.format(cls.__name__))
-        plot_model(
-            model,
-            to_file=plot_file_path,
-            show_shapes=True,
-            show_layer_names=True
-        )
+
+        if 'Darwin' == platform.system():
+            plot_model(
+                model,
+                to_file=plot_file_path,
+                show_shapes=True,
+                show_layer_names=True
+            )
 
         return model
 
     @staticmethod
     def _get_lstm_class() -> RNN.__class__:
-        if 'Darwin' == platform.system():
-            return LSTM
-        else:
-            return CuDNNLSTM
+        return LSTM
+        # return CuDNNLSTM
 
 
 def main():
