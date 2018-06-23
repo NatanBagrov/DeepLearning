@@ -45,6 +45,7 @@ class CharacterLevelReviewGenerator:
         assert self._review_shape == validation_y.shape[1:]
 
         time_stamp = time.strftime("%c")
+        print('time_stamp=', time_stamp)
         model_directory_path = os.path.join('weights', time_stamp)
         os.makedirs(model_directory_path, exist_ok=True)
         model_file_path = os.path.join(model_directory_path, '{}.h5'.format(self.__class__.__name__))
@@ -73,26 +74,25 @@ class CharacterLevelReviewGenerator:
         result = np.zeros([1, ] + list(self._review_shape))
         seed = [SpecialConstants.START.value, self._character_to_index[' ']] + seed
         result[0, :len(seed)] = to_categorical(seed, num_classes=len(self._character_to_index))
-        index_to_sentiment = np.array(index_to_sentiment)
 
         for index in range(1, len(seed)):
             yield np.argmax(result[0, index])
 
         for index in range(len(seed), result.shape[1]):
             self._model.reset_states()
-            prediction = self._model.predict([result, index_to_sentiment])
+            prediction = self._model.predict([result, np.array([index_to_sentiment[index]])])
             number_to_probability = prediction[0][index - 1]
             number = np.argmax(number_to_probability)
             result[0, index, number] = 1
 
+            yield number
+
             if self._character_to_index['.'] == number:
                 return
 
-            yield number
-
     def load_weights(self, file_path=None):
         if file_path is None:
-            file_paths = glob.glob('weights/*.h5')  # * means all if need specific format then *.csv
+            file_paths = glob.glob('weights/*/*.h5')  # * means all if need specific format then *.csv
             file_path = max(file_paths, key=os.path.getctime)
 
         print('Restoring from {}'.format(file_path))
@@ -130,15 +130,15 @@ class CharacterLevelReviewGenerator:
             return [BatchNormalization()] if use_post_activation_batch_normalization else list()
 
         for layer in [
-            lstm(128, return_sequences=True),  # TODO: does it have some non linearity automatically?
-            lstm(128, return_sequences=True),
+            lstm(512, return_sequences=True),  # TODO: does it have some non linearity automatically?
+            lstm(512, return_sequences=True),
         ]:
             reviews_output = layer(reviews_output)
 
         sentiments_input = Input(shape=sentiment_shape)
         sentiments_output = sentiments_input
 
-        for layer in [Dense(128),
+        for layer in [Dense(512),
                       Activation(relu)]:
             sentiments_output = layer(sentiments_output)
 
@@ -146,13 +146,13 @@ class CharacterLevelReviewGenerator:
         output = Add()([reviews_output, sentiments_output])
 
         for layer in (
-                [lstm(256, return_sequences=True)] +   # TODO: does it have some non linearity automatically?
-                [lstm(256, return_sequences=True)] +
-                [TimeDistributed(Dense(128))] +
+                [lstm(512, return_sequences=True)] +   # TODO: does it have some non linearity automatically?
+                [lstm(512, return_sequences=True)] +
+                [TimeDistributed(Dense(512))] +
                 pre_activation_batch_normalization() +
                 [Activation(relu)] +
                 post_activation_batch_normalization() +
-                [TimeDistributed(Dense(128))] +
+                [TimeDistributed(Dense(1024))] +
                 pre_activation_batch_normalization() +
                 [Activation(relu)] +
                 post_activation_batch_normalization() +
@@ -213,8 +213,22 @@ def main():
     if 'predict' in sys.argv:
         model.load_weights()
 
-        for character in model.generate_greedy_string("this movie", [0, ] * 1000):
+        for character in model.generate_greedy_string(
+                "",
+                ([0, ] * (train_data[0][0].shape[1] // 2)) +
+                ([1, ] * (train_data[0][0].shape[1] - train_data[0][0].shape[1] // 2))
+        ):
             print(character, end='', flush=True)
+        print()
+
+        for character in model.generate_greedy_string("", [0, ] * train_data[0][0].shape[1]):
+            print(character, end='', flush=True)
+        print()
+
+        for character in model.generate_greedy_string("", [1, ] * train_data[0][0].shape[1]):
+            print(character, end='', flush=True)
+        print()
+
     else:
         history = model.fit(train_data, validation_data, epochs=epochs)
         print(history)

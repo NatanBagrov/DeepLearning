@@ -154,6 +154,8 @@ def prepare_data_characters(preview=0, train_length=sys.maxsize, test_length=sys
                                                     character_to_index['.'], len(character_to_index))
     test_x_review, test_y_review = convert_to_x_y(reviews_test, review_length,
                                                   character_to_index['.'], len(character_to_index))
+
+    # TODO: consider making sentiments per character
     sentiments_train = convert_to_column(sentiments_train)
     sentiments_test = convert_to_column(sentiments_test)
 
