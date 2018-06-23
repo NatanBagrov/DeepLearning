@@ -1,23 +1,33 @@
 import platform
 import os
+import time
+import glob
+import sys
 
 import numpy as np
 from keras import Model, Input
 from keras.activations import relu, softmax
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
-from keras.layers import CuDNNLSTM, Concatenate, Dense, Activation, TimeDistributed, Add, LSTM, RNN
+from keras.metrics import categorical_accuracy
+from keras.layers import CuDNNLSTM, Concatenate, Dense, Activation, TimeDistributed, Add, LSTM, RNN, BatchNormalization
 from keras.utils import plot_model, to_categorical
 from keras.callbacks import TensorBoard, ModelCheckpoint
 
-from data_preparation import inverse_dictionary, encode_characters, decode_characters
+from data_preparation import inverse_dictionary, encode_characters, decode_characters, SpecialConstants
 
 
 class CharacterLevelReviewGenerator:
-    def __init__(self, index_to_character):
-        self._model = None
+    def __init__(self, index_to_character, reveiw_length:int):
         self._index_to_character = index_to_character
         self._character_to_index = inverse_dictionary(index_to_character)
+        self._review_length = reveiw_length
+        self._model = self.__class__._build_model(
+            self._review_shape,
+            self._sentiment_shape,
+            self._vocabulary_size,
+            use_post_activation_batch_normalization=False,
+        )
 
     def fit(self,
             train_data,
@@ -27,19 +37,15 @@ class CharacterLevelReviewGenerator:
         (train_reviews, train_sentiments), train_y = train_data
         (validation_reviews, validation_sentiments), validation_y = validation_data
 
-        review_shape = train_reviews.shape[1:]
-        sentiment_shape = train_sentiments.shape[1:]
-        y_shape = train_y.shape[1:]
+        assert self._review_shape == train_reviews.shape[1:]
+        assert self._review_shape == validation_reviews.shape[1:]
+        assert self._sentiment_shape == train_sentiments.shape[1:]
+        assert self._sentiment_shape == validation_sentiments.shape[1:]
+        assert self._review_shape == train_y.shape[1:]
+        assert self._review_shape == validation_y.shape[1:]
 
-        assert review_shape == train_reviews.shape[1:]
-        assert review_shape == validation_reviews.shape[1:]
-        assert sentiment_shape == train_sentiments.shape[1:]
-        assert sentiment_shape == validation_sentiments.shape[1:]
-        assert y_shape == train_y.shape[1:]
-        assert y_shape == validation_y.shape[1:]
-
-        self._model = self.__class__._build_model(review_shape, sentiment_shape, len(self._index_to_character))
-        model_directory_path = 'weights'
+        time_stamp = time.strftime("%c")
+        model_directory_path = os.path.join('weights', time_stamp)
         os.makedirs(model_directory_path, exist_ok=True)
         model_file_path = os.path.join(model_directory_path, '{}.h5'.format(self.__class__.__name__))
         history = self._model.fit(
@@ -50,7 +56,7 @@ class CharacterLevelReviewGenerator:
             verbose=1,
             validation_data=([validation_reviews, validation_sentiments], validation_y),
             callbacks=[
-                TensorBoard(),
+                TensorBoard(log_dir=os.path.join('logs', time_stamp)),
                 ModelCheckpoint(model_file_path)
             ]
         )
@@ -59,21 +65,68 @@ class CharacterLevelReviewGenerator:
 
     def generate_greedy_string(self, seed: str, index_to_sentiment):
         seed = encode_characters(seed, self._character_to_index)
-        numbers = self.generate_greedy_numbers(seed)
-        string = decode_characters(numbers, self._index_to_character)
 
-        return string
+        for index in self._generate_greedy_numbers(seed, index_to_sentiment):
+            yield self._index_to_character[index]
+
+    def _generate_greedy_numbers(self,  seed, index_to_sentiment):
+        result = np.zeros([1, ] + list(self._review_shape))
+        seed = [SpecialConstants.START.value] + seed
+        result[0, :len(seed)] = to_categorical(seed, num_classes=len(self._character_to_index))
+        index_to_sentiment = np.array(index_to_sentiment)
+
+        for index in range(1, len(seed)):
+            yield np.argmax(result[0, index])
+
+        for index in range(len(seed), result.shape[1]):
+            self._model.reset_states()
+            number_to_probability = self._model.predict([result, index_to_sentiment])[0][index - 1]
+            number = np.argmax(number_to_probability)
+            result[0, index, number] = 1
+
+            if self._character_to_index['.'] == number:
+                return
+
+            yield number
+
+    def load_weights(self, file_path=None):
+        if file_path is None:
+            file_paths = glob.glob('weights/*.h5')  # * means all if need specific format then *.csv
+            file_path = max(file_paths, key=os.path.getctime)
+
+        print('Restoring from {}'.format(file_path))
+        self._model.load_weights(file_path)
+
+    @property
+    def _review_shape(self):
+        return self._review_length, self._vocabulary_size
+
+    @property
+    def _sentiment_shape(self):
+        return 1,
+
+    @property
+    def _vocabulary_size(self):
+        return len(self._index_to_character)
 
     @classmethod
     def _build_model(
             cls,
             review_shape,
             sentiment_shape,
-            vocabulary_size
+            vocabulary_size,
+            use_pre_activation_batch_normalization=False,
+            use_post_activation_batch_normalization=True,
     ):
         reviews_input = Input(shape=review_shape)
         reviews_output = reviews_input
         lstm = cls._get_lstm_class()
+
+        def pre_activation_batch_normalization():
+            return [BatchNormalization()] if use_pre_activation_batch_normalization else list()
+
+        def post_activation_batch_normalization():
+            return [BatchNormalization()] if use_post_activation_batch_normalization else list()
 
         for layer in [
             lstm(128, return_sequences=True),  # TODO: does it have some non linearity automatically?
@@ -91,16 +144,20 @@ class CharacterLevelReviewGenerator:
         # output = Concatenate()([reviews_output, sentiments_output])  # TODO: replicate then concatenate
         output = Add()([reviews_output, sentiments_output])
 
-        for layer in [
-            lstm(256, return_sequences=True),  # TODO: does it have some non linearity automatically?
-            lstm(256, return_sequences=True),
-            TimeDistributed(Dense(128)),
-            Activation(relu),
-            TimeDistributed(Dense(128)),
-            Activation(relu),
-            TimeDistributed(Dense(vocabulary_size)),
-            Activation(softmax),
-        ]:
+        for layer in (
+                [lstm(256, return_sequences=True)] +   # TODO: does it have some non linearity automatically?
+                [lstm(256, return_sequences=True)] +
+                [TimeDistributed(Dense(128))] +
+                pre_activation_batch_normalization() +
+                [Activation(relu)] +
+                post_activation_batch_normalization() +
+                [TimeDistributed(Dense(128))] +
+                pre_activation_batch_normalization() +
+                [Activation(relu)] +
+                post_activation_batch_normalization() +
+                [TimeDistributed(Dense(vocabulary_size))] +
+                [Activation(softmax)]
+        ):
             output = layer(output)
 
         model = Model(
@@ -111,7 +168,7 @@ class CharacterLevelReviewGenerator:
         model.compile(
             Adam(),
             loss=categorical_crossentropy,
-            # metrics=
+            metrics=[categorical_accuracy]
         )
 
         model.summary()
@@ -138,12 +195,27 @@ class CharacterLevelReviewGenerator:
 def main():
     from data_preparation import prepare_data_characters
 
-    train_data, validation_data, index_to_character = prepare_data_characters(preview=10,
-                                                                              # train_length=20, test_length=10
-                                                                              )
-    model = CharacterLevelReviewGenerator(index_to_character)
-    history = model.fit(train_data, validation_data, epochs=40)
+    if 'debug' in sys.argv:
+        train_length = 20
+        test_length = 20
+        epochs = 3
+    else:
+        train_length = sys.maxsize
+        test_length = sys.maxsize
+        epochs = 40
 
+    train_data, validation_data, index_to_character = prepare_data_characters(preview=10,
+                                                                              train_length=train_length,
+                                                                              test_length=test_length)
+    model = CharacterLevelReviewGenerator(index_to_character, train_data[0][0].shape[1])
+
+    if 'predict' in sys.argv:
+        model.load_weights()
+
+        for character in model.generate_greedy_string("this movie has", [0, ] * 1000):
+            print(character, end='', flush=True)
+
+    history = model.fit(train_data, validation_data, epochs=epochs)
     print(history)
 
 
