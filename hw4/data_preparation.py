@@ -37,9 +37,9 @@ def prepare_index_to_word(preview=0):
 def prepare_character_to_index(preview=0):
     characters = string.printable
     character_to_index = {character: index + 3 for index, character in enumerate(characters)}
-    character_to_index[SpecialConstants.PADDING.value] = SpecialConstants.PADDING
-    character_to_index[SpecialConstants.START.value] = SpecialConstants.START
-    character_to_index[SpecialConstants.OUT_OF_VOCABULARY.value] = SpecialConstants.OUT_OF_VOCABULARY
+    character_to_index[SpecialConstants.PADDING] = SpecialConstants.PADDING.value
+    character_to_index[SpecialConstants.START] = SpecialConstants.START.value
+    character_to_index[SpecialConstants.OUT_OF_VOCABULARY] = SpecialConstants.OUT_OF_VOCABULARY.value
     index_to_character = {index: character for character, index in character_to_index.items()}
 
     if 0 != preview:
@@ -147,9 +147,12 @@ def prepare_data_characters(preview=0, train_length=sys.maxsize, test_length=sys
     print('max review length: ', max_review_length)
     print('median review length: ', median_review_length)
     print('mean review length: ', mean_review_length)
-    train_x_review, train_y_review = convert_to_x_y(reviews_train, median_review_length,
+    review_length = 200
+    print('review length: ', review_length)
+
+    train_x_review, train_y_review = convert_to_x_y(reviews_train, review_length,
                                                     character_to_index['.'], len(character_to_index))
-    test_x_review, test_y_review = convert_to_x_y(reviews_test, median_review_length,
+    test_x_review, test_y_review = convert_to_x_y(reviews_test, review_length,
                                                   character_to_index['.'], len(character_to_index))
     sentiments_train = convert_to_column(sentiments_train)
     sentiments_test = convert_to_column(sentiments_test)

@@ -18,15 +18,15 @@ from data_preparation import inverse_dictionary, encode_characters, decode_chara
 
 
 class CharacterLevelReviewGenerator:
-    def __init__(self, index_to_character, reveiw_length:int):
+    def __init__(self, index_to_character, review_length:int):
         self._index_to_character = index_to_character
         self._character_to_index = inverse_dictionary(index_to_character)
-        self._review_length = reveiw_length
+        self._review_length = review_length
         self._model = self.__class__._build_model(
             self._review_shape,
             self._sentiment_shape,
             self._vocabulary_size,
-            use_post_activation_batch_normalization=False,
+            use_post_activation_batch_normalization=True,
         )
 
     def fit(self,
@@ -71,7 +71,7 @@ class CharacterLevelReviewGenerator:
 
     def _generate_greedy_numbers(self,  seed, index_to_sentiment):
         result = np.zeros([1, ] + list(self._review_shape))
-        seed = [SpecialConstants.START.value] + seed
+        seed = [SpecialConstants.START.value, self._character_to_index[' ']] + seed
         result[0, :len(seed)] = to_categorical(seed, num_classes=len(self._character_to_index))
         index_to_sentiment = np.array(index_to_sentiment)
 
@@ -80,7 +80,8 @@ class CharacterLevelReviewGenerator:
 
         for index in range(len(seed), result.shape[1]):
             self._model.reset_states()
-            number_to_probability = self._model.predict([result, index_to_sentiment])[0][index - 1]
+            prediction = self._model.predict([result, index_to_sentiment])
+            number_to_probability = prediction[0][index - 1]
             number = np.argmax(number_to_probability)
             result[0, index, number] = 1
 
@@ -212,11 +213,11 @@ def main():
     if 'predict' in sys.argv:
         model.load_weights()
 
-        for character in model.generate_greedy_string("this movie has", [0, ] * 1000):
+        for character in model.generate_greedy_string("this movie", [0, ] * 1000):
             print(character, end='', flush=True)
-
-    history = model.fit(train_data, validation_data, epochs=epochs)
-    print(history)
+    else:
+        history = model.fit(train_data, validation_data, epochs=epochs)
+        print(history)
 
 
 if __name__ == '__main__':
