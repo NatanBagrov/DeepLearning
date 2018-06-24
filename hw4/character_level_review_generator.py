@@ -58,7 +58,7 @@ class CharacterLevelReviewGenerator:
             validation_data=([validation_reviews, validation_sentiments], validation_y),
             callbacks=[
                 TensorBoard(log_dir=os.path.join('logs', time_stamp)),
-                ModelCheckpoint(model_file_path)
+                ModelCheckpoint(model_file_path, monitor='val_categorical_accuracy', save_best_only=True)
             ]
         )
 
@@ -92,7 +92,7 @@ class CharacterLevelReviewGenerator:
 
     def load_weights(self, file_path=None):
         if file_path is None:
-            file_paths = glob.glob('weights/*/*.h5')  # * means all if need specific format then *.csv
+            file_paths = glob.glob('weights/*/*.h5')
             file_path = max(file_paths, key=os.path.getctime)
 
         print('Restoring from {}'.format(file_path))
@@ -130,7 +130,7 @@ class CharacterLevelReviewGenerator:
             return [BatchNormalization()] if use_post_activation_batch_normalization else list()
 
         for layer in [
-            lstm(512, return_sequences=True),  # TODO: does it have some non linearity automatically?
+            lstm(512, return_sequences=True),
             lstm(512, return_sequences=True),
         ]:
             reviews_output = layer(reviews_output)
@@ -146,7 +146,8 @@ class CharacterLevelReviewGenerator:
         output = Add()([reviews_output, sentiments_output])
 
         for layer in (
-                [lstm(512, return_sequences=True)] +   # TODO: does it have some non linearity automatically?
+                [lstm(512, return_sequences=True)] +
+                [lstm(512, return_sequences=True)] +
                 [lstm(512, return_sequences=True)] +
                 [TimeDistributed(Dense(512))] +
                 pre_activation_batch_normalization() +
