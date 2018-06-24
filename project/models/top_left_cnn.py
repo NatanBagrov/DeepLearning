@@ -7,8 +7,9 @@ from keras import Sequential
 from keras.activations import relu, softmax
 from keras.layers import Conv2D, MaxPooling2D, Activation, BatchNormalization, Input, Dense, Flatten
 from keras.optimizers import Adam
-from keras.losses import binary_crossentropy
-from keras.metrics import binary_accuracy
+from keras.losses import categorical_crossentropy
+from keras.metrics import categorical_accuracy
+from keras.utils import to_categorical
 from keras.callbacks import ModelCheckpoint, Callback
 
 from utils.image_type import ImageType
@@ -18,18 +19,18 @@ from utils.data_provider import DataProvider
 from models.generic_cnn import GenericCNN
 
 
-class ComparatorCNN(GenericCNN):
-    """
-    Network checks if one picture lies to the left of another
-    """
+class TopLeftCNN(GenericCNN):
     def __init__(self, t, width, height, image_type: ImageType, mean=None, std=None):
         super().__init__(t, width, height, image_type, mean=mean, std=std)
-        self._model = self.__class__._build_model(width, height, post_activation_bn=True)
+        self._model = self.__class__._build_model(width, height,
+                                                  post_activation_bn=True,
+                                                  input_depth=t**2,
+                                                  classes=t**2)
 
     @staticmethod
     def _build_model(width, height,
                      pre_activation_bn=False, post_activation_bn=False,
-                     input_depth=2, classes=2, padding='same',
+                     input_depth=None, classes=2, padding='same',
                      learning_rate=1e-3, learning_rate_decay=1e-6):
         def maybe_bn(is_pre_activation):
             if is_pre_activation and pre_activation_bn or post_activation_bn:
@@ -126,10 +127,10 @@ class ComparatorCNN(GenericCNN):
             decay=learning_rate_decay
         )
 
-        loss = binary_crossentropy
+        loss = categorical_crossentropy
 
         metrics = [
-            binary_accuracy
+            categorical_accuracy
         ]
 
         model.compile(
@@ -139,31 +140,6 @@ class ComparatorCNN(GenericCNN):
         )
 
         return model
-
-    def predict_is_left_probability(self, left, right, standardise=True):
-        tensor = ComparatorCNN._prepare_left_right_check(left, right)
-
-        return self.predict_probability(tensor, standardise=standardise)
-
-    def predict_is_top_probability(self, top, bottom, standardise=True):
-        tensor = ComparatorCNN._prepare_top_bottom_check(top, bottom)
-
-        return self.predict_probability(tensor, standardise=standardise)
-
-    @staticmethod
-    def _prepare_left_right_check(left, right):
-        right = np.flip(right, axis=-1)
-
-        return np.stack((left, right), axis=-1)
-
-    @staticmethod
-    def _prepare_top_bottom_check(top, bottom):
-        top = np.rot90(top, axes=(-2, -1))
-        bottom = np.rot90(bottom, axes=(-2, -1))
-
-        tensor = ComparatorCNN._prepare_left_right_check(top, bottom)
-
-        return tensor
 
     @staticmethod
     def _generate_regular_shreds_stratified(images: list, width, height, t, batch_size=None):
@@ -176,70 +152,30 @@ class ComparatorCNN(GenericCNN):
             np.array(sample_index_to_shred_index_to_image).dtype
         ))
         assert (number_of_samples, t ** 2, height, width) == sample_index_to_shred_index_to_image.shape
-        probabilities_regular_pattern = np.full((t * t), 1.0 / (2.0 * (t**2 - 1.0)))
-        probabilities_edge = np.full((t * t), 1.0 / (t ** 2))
-        options = np.arange(t * t)
 
         if batch_size is None:
-            batch_size = 2 * number_of_samples * (t ** 2)
+            batch_size = number_of_samples
 
         while True:
-            for batch_offset in range(0, 2 * number_of_samples * t * t, batch_size):
+            # permutation = np.arange(number_of_samples)
+            sample_permutation = np.random.permutation(number_of_samples)
+
+            for batch_offset in range(0, number_of_samples, batch_size):
                 x = list()
                 y = list()
 
-                for batch_index in range(batch_size):
-                    is_top = np.random.choice((False, True))
-                    sample = np.random.choice(len(images))
-                    row, col = np.random.choice(t, size=2)
-
-                    if is_top:
-                        neighbour_row = row + 1
-                        neighbour_col = col
-                        is_edge = neighbour_row == t
-                    else:
-                        neighbour_row = row
-                        neighbour_col = col + 1
-                        is_edge = neighbour_col == t
-
-                    if is_edge:
-                        p = probabilities_edge
-                    else:
-                        assert options[neighbour_row * t + neighbour_col] == neighbour_row * t + neighbour_col
-                        probabilities_regular_pattern[neighbour_row * t + neighbour_col] = 1.0 / 2.0
-                        p = probabilities_regular_pattern
-
-                    second_row_col = np.random.choice(options, p=p)
-                    second_row = second_row_col // t
-                    second_col = second_row_col % t
-
-                    if not is_edge:
-                        probabilities_regular_pattern[neighbour_row * t + neighbour_col] = 1.0 / (2.0 * (t**2 - 1.0))
-
-                    image_above = sample_index_to_shred_index_to_image[sample, row * t + col]
-                    image_beyond = sample_index_to_shred_index_to_image[sample, second_row * t + second_col]
-
-                    if is_top:
-                        tensor = ComparatorCNN._prepare_top_bottom_check(image_above, image_beyond)
-                    else:
-                        tensor = ComparatorCNN._prepare_left_right_check(image_above, image_beyond)
-
-                    assert (height, width, 2) == tensor.shape
-
-                    x.append(tensor)
-
-                    if neighbour_row == second_row and neighbour_col == second_col:
-                        one_hot = [0, 1]
-                    else:
-                        one_hot = [1, 0]
-
-                    y.append(one_hot)
+                for batch_index in range(min(batch_size, number_of_samples - batch_offset)):
+                    sample_index = sample_permutation[batch_offset + batch_index]
+                    # shred_permutation = np.arange(t ** 2)
+                    shred_permutation = np.random.permutation(t ** 2)
+                    x.append(np.moveaxis(sample_index_to_shred_index_to_image[sample_index][shred_permutation], 0, -1))
+                    y.append(0 == shred_permutation)
 
                 x = np.stack(x)
                 y = np.stack(y)
 
-                assert (batch_size, height, width, 2) == x.shape
-                assert (batch_size, 2) == y.shape
+                assert (min(batch_size, number_of_samples - batch_offset), width, height, t ** 2) == x.shape
+                assert (min(batch_size, number_of_samples - batch_offset), t ** 2) == y.shape
 
                 yield x, y
 
@@ -252,7 +188,7 @@ def main():
     else:
         print('Release')
         number_of_samples = sys.maxsize
-        epochs = 200
+        epochs = 50
 
     ts = list()
 
@@ -304,7 +240,7 @@ def main():
             images = get_images(num_samples=number_of_samples)
             images_train, images_validation = train_test_split(images, random_state=42)
 
-            clf = ComparatorCNN(t, width, height, image_type)
+            clf = TopLeftCNN(t, width, height, image_type)
 
             if force:
                 clf.fit_generator(
