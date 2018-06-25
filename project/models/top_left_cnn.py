@@ -96,31 +96,31 @@ class TopLeftCNN(GenericCNN):
         # )
 
         model = Sequential(
-            convolution(8, input_shape=(height, width, input_depth)) +
-            convolution(8) +
-            max_pooling() +
-            convolution(16) +
-            convolution(16) +
-            max_pooling() +
-            convolution(32) +
-            convolution(32) +
+            convolution(32, input_shape=(height, width, input_depth)) +
             convolution(32) +
             max_pooling() +
-            convolution(64) +
             convolution(64) +
             convolution(64) +
             max_pooling() +
             convolution(128) +
             convolution(128) +
             convolution(128) +
+            max_pooling() +
+            convolution(256) +
+            convolution(256) +
+            convolution(256) +
+            max_pooling() +
+            convolution(512) +
+            convolution(512) +
+            convolution(512) +
             max_pooling() +
             flatten() +
-            fully_connected(512) +
-            fully_connected(512) +
+            fully_connected(1024) +
+            fully_connected(1024) +
             output_layer()
         )
 
-        # model.summary()
+        model.summary()
 
         optimizer = Adam(
             lr=learning_rate,
