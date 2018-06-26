@@ -442,7 +442,13 @@ class SolverWithComparator:
                     right_index = row_to_column_to_crop_index[row][column + 1]
                     objective *= left_index_to_right_index_to_probability[left_index][right_index]
                     # TODO: bug bug bug, fails when executing log!!!!
-                    log_objective += math.log(left_index_to_right_index_to_probability[left_index][right_index])
+                    try:
+                        log_objective += math.log(left_index_to_right_index_to_probability[left_index][right_index])
+                    except ValueError:
+                        print('Can not calculate log({})'.format(
+                            left_index_to_right_index_to_probability[left_index][right_index])
+                        )
+                        log_objective = float("-inf")
 
         return objective, log_objective
 
