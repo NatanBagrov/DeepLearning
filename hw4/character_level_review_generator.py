@@ -13,6 +13,7 @@ from keras.metrics import categorical_accuracy
 from keras.layers import CuDNNLSTM, Concatenate, Dense, Activation, TimeDistributed, Add, LSTM, RNN, BatchNormalization
 from keras.utils import plot_model, to_categorical
 from keras.callbacks import TensorBoard, ModelCheckpoint
+from nltk.translate.bleu_score import corpus_bleu
 
 from data_preparation import inverse_dictionary, encode_characters, decode_characters, SpecialConstants
 
@@ -58,7 +59,7 @@ class CharacterLevelReviewGenerator:
             validation_data=([validation_reviews, validation_sentiments], validation_y),
             callbacks=[
                 TensorBoard(log_dir=os.path.join('logs', time_stamp)),
-                ModelCheckpoint(model_file_path)
+                ModelCheckpoint(model_file_path, monitor='val_categorical_accuracy', save_best_only=True)
             ]
         )
 
@@ -92,7 +93,7 @@ class CharacterLevelReviewGenerator:
 
     def load_weights(self, file_path=None):
         if file_path is None:
-            file_paths = glob.glob('weights/*/*.h5')  # * means all if need specific format then *.csv
+            file_paths = glob.glob('weights/*/*.h5')
             file_path = max(file_paths, key=os.path.getctime)
 
         print('Restoring from {}'.format(file_path))
@@ -130,7 +131,7 @@ class CharacterLevelReviewGenerator:
             return [BatchNormalization()] if use_post_activation_batch_normalization else list()
 
         for layer in [
-            lstm(512, return_sequences=True),  # TODO: does it have some non linearity automatically?
+            lstm(512, return_sequences=True),
             lstm(512, return_sequences=True),
         ]:
             reviews_output = layer(reviews_output)
@@ -146,7 +147,8 @@ class CharacterLevelReviewGenerator:
         output = Add()([reviews_output, sentiments_output])
 
         for layer in (
-                [lstm(512, return_sequences=True)] +   # TODO: does it have some non linearity automatically?
+                [lstm(512, return_sequences=True)] +
+                [lstm(512, return_sequences=True)] +
                 [lstm(512, return_sequences=True)] +
                 [TimeDistributed(Dense(512))] +
                 pre_activation_batch_normalization() +
@@ -192,6 +194,26 @@ class CharacterLevelReviewGenerator:
         return LSTM
         # return CuDNNLSTM
 
+    # TODO: is it what should be done?
+    def evaluate(self, test_data):
+        (test_reviews, test_sentiments), test_y = test_data
+
+        predicted_y = self._model.predict([test_reviews, test_sentiments])
+        test_reviews = self.convert_one_hot_to_string(test_reviews)
+        predicted_y = self.convert_one_hot_to_string(predicted_y)
+        blue = corpus_bleu(test_reviews, predicted_y)  # TODO: weigths?!
+
+        return blue
+
+    def convert_one_hot_to_string(self, one_hot):
+        numbers = np.argmax(one_hot, axis=-1)
+        strings = np.apply_along_axis(
+            lambda indices: ''.join(map(self._index_to_character.get, indices[1:])),
+            -1,
+            numbers)
+
+        return strings
+
 
 def main():
     from data_preparation import prepare_data_characters
@@ -228,7 +250,9 @@ def main():
         for character in model.generate_greedy_string("", [1, ] * train_data[0][0].shape[1]):
             print(character, end='', flush=True)
         print()
-
+    elif 'evaluate' in sys.argv:
+        model.load_weights()
+        print('Bleu:', model.evaluate(validation_data))
     else:
         history = model.fit(train_data, validation_data, epochs=epochs)
         print(history)
