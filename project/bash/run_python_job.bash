@@ -7,8 +7,8 @@
 # (change to your own email if you wish to get one, or just delete this and the following lines)
 #SBATCH --mail-type=ALL  # Valid values are NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --job-name="just_a_test"
-#SBATCH -o slurm.%N.%j.out    # stdout goes here
-#SBATCH -e slurm.%N.%j.out   # stderr goes here
+#SBATCH -o slurm.%j.%N.out    # stdout goes here
+#SBATCH -e slurm.%j.%N.out   # stderr goes here
 
 nvidia-smi
 source ~/tensorflow/bin/activate

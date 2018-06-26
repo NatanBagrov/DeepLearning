@@ -1,5 +1,7 @@
 import math
 import sys
+import os
+import time
 from timeit import timeit
 
 import numpy as np
@@ -15,8 +17,9 @@ from models.comparator_cnn import ComparatorCNN
 
 
 class SolverWithComparator:
-    def __init__(self, t_to_comparator):
+    def __init__(self, t_to_comparator, image_type=None):
         self._t_to_comparator = t_to_comparator
+        self._image_type = image_type
 
     def predict(self, shreds: list):
         t_square = len(shreds)
@@ -32,7 +35,7 @@ class SolverWithComparator:
             shreds,
             comparator.predict_is_top_probability)
 
-        prediction = SolverWithComparator._predict_greedy_iterating_on_top_left(
+        prediction = self._predict_greedy(
             left_index_to_right_index_to_probability,
             top_index_to_bottom_index_to_probability
         )
@@ -56,7 +59,7 @@ class SolverWithComparator:
                     accuracies.append(current_accuracy)
 
             current_accuracy = np.average(accuracies)
-            print('For t={} 0-1 is {}'.format(t, current_accuracy))
+            print('For t={} and image_type={} 0-1 is {}'.format(t, self._image_type, current_accuracy))
             index_to_accuracy.append(current_accuracy)
 
         return np.average(index_to_accuracy)
@@ -77,15 +80,18 @@ class SolverWithComparator:
         if not np.isclose(current_accuracy, 1.0):
             print('On #{} 0-1 is {}: {}!={}'.format(sample_index, current_accuracy,
                                                     permutation, permutation_predicted))
-            visualize = False
+            visualize = True
 
             if visualize:
+                os.makedirs('problems/{}/'.format(t), exist_ok=True)
+                time_stamp = int(time.time())
+
                 Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation)],
-                                           show=True,
-                                           save_path='original.png')
+                                           show=False,
+                                           save_path='problems/{}/{}-original.png'.format(t, time_stamp))
                 Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation_predicted)],
-                                           show=True,
-                                           save_path='restored.png')
+                                           show=False,
+                                           save_path='problems/{}/{}-restored.png'.format(t, time_stamp))
                 print('visualized')
 
         return current_accuracy
@@ -230,8 +236,8 @@ class SolverWithComparator:
 
     @staticmethod
     def _partial_constraints_add(problem,
-                                row_increment, column_increment,
-                                index_to_row_to_column, first_to_second_to_is,
+                                 row_increment, column_increment,
+                                 index_to_row_to_column, first_to_second_to_is,
                                  name):
         t_square = len(index_to_row_to_column)
         t = int(round(math.sqrt(t_square)))
@@ -276,8 +282,38 @@ class SolverWithComparator:
         return result
 
     @staticmethod
-    def _predict_greedy(left_index_to_right_index_to_probability,
-                        top_index_to_bottom_index_to_probability):
+    def _predict_greedy_from_bottom_right(left_index_to_right_index_to_probability,
+                                          top_index_to_bottom_index_to_probability):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        right_index_to_left_index_to_probability = np.transpose(left_index_to_right_index_to_probability)
+        bottom_index_to_top_index_to_probability = np.transpose(top_index_to_bottom_index_to_probability)
+        crop_position_in_transposed_image = SolverWithComparator._predict_greedy_from_top_left(
+            right_index_to_left_index_to_probability,
+            bottom_index_to_top_index_to_probability,
+        )
+        crop_position_in_original_image = list(map(lambda position: t_square - 1 - position,
+                                                   crop_position_in_transposed_image))
+
+        return crop_position_in_original_image
+
+    @staticmethod
+    def _predict_greedy_iterating_on_bottom_right(left_index_to_right_index_to_probability,
+                                                  top_index_to_bottom_index_to_probability):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        right_index_to_left_index_to_probability = np.transpose(left_index_to_right_index_to_probability)
+        bottom_index_to_top_index_to_probability = np.transpose(top_index_to_bottom_index_to_probability)
+        crop_position_in_transposed_image = SolverWithComparator._predict_greedy_iterating_on_top_left(
+            right_index_to_left_index_to_probability,
+            bottom_index_to_top_index_to_probability,
+        )
+        crop_position_in_original_image = list(map(lambda position: t_square - 1 - position,
+                                                   crop_position_in_transposed_image))
+
+        return crop_position_in_original_image
+
+    @staticmethod
+    def _predict_greedy_from_top_left(left_index_to_right_index_to_probability,
+                                      top_index_to_bottom_index_to_probability):
         t_square = left_index_to_right_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
         assert t**2 == t_square
@@ -294,7 +330,7 @@ class SolverWithComparator:
                 top_left_probability = current_probability
                 top_left_index = second_index
 
-        crop_position_in_original_image = SolverWithComparator.continue_greedy_given_top_left(
+        crop_position_in_original_image = SolverWithComparator._continue_greedy_given_top_left(
             top_left_index,
             left_index_to_right_index_to_probability,
             top_index_to_bottom_index_to_probability
@@ -328,8 +364,8 @@ class SolverWithComparator:
 
     @staticmethod
     def _continue_greedy_given_top_left(top_left_index,
-                                       left_index_to_right_index_to_probability,
-                                       top_index_to_bottom_index_to_probability):
+                                        left_index_to_right_index_to_probability,
+                                        top_index_to_bottom_index_to_probability):
         t_square = top_index_to_bottom_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
         order = [top_left_index, ]
@@ -392,15 +428,54 @@ class SolverWithComparator:
                     top_index = row_to_column_to_crop_index[row][column]
                     bottom_index = row_to_column_to_crop_index[row + 1][column]
                     objective *= top_index_to_bottom_index_to_probability[top_index][bottom_index]
-                    log_objective += math.log(top_index_to_bottom_index_to_probability[top_index][bottom_index])
+
+                    try:
+                        log_objective += math.log(top_index_to_bottom_index_to_probability[top_index][bottom_index])
+                    except ValueError:
+                        print('Can not calculate log({})'.format(
+                            top_index_to_bottom_index_to_probability[top_index][bottom_index])
+                        )
+                        return float("-inf")
 
                 if column + 1 < t:
                     left_index = row_to_column_to_crop_index[row][column]
                     right_index = row_to_column_to_crop_index[row][column + 1]
                     objective *= left_index_to_right_index_to_probability[left_index][right_index]
+                    # TODO: bug bug bug, fails when executing log!!!!
                     log_objective += math.log(left_index_to_right_index_to_probability[left_index][right_index])
 
         return objective, log_objective
+
+    def _predict_greedy(self,
+                        left_index_to_right_index_to_probability,
+                        top_index_to_bottom_index_to_probability):
+        crop_position_in_original_image_1 = \
+            self.__class__._predict_greedy_iterating_on_top_left(
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability)
+        crop_position_in_original_image_2 = \
+            self.__class__._predict_greedy_iterating_on_bottom_right(
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability)
+
+        objective_1, log_objective_1 = self.__class__._compute_objective(
+            crop_position_in_original_image_1,
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability)
+
+        objective_2, log_objective_2 = self.__class__._compute_objective(
+            crop_position_in_original_image_2,
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability)
+
+        if log_objective_1 < log_objective_2:
+            print('Using bottom right')
+            crop_position_in_original_image = crop_position_in_original_image_2
+        else:
+            print('Using top left')
+            crop_position_in_original_image = crop_position_in_original_image_2
+
+        return crop_position_in_original_image
 
 
 def main():
@@ -490,6 +565,7 @@ def debug():
     slv = SolverWithComparator({t: cmp})
     score = slv.evaluate_image_for_permutation(images_validation[0], permutation, sample_index=index)
     print('done with ', score)
+
 
 if __name__ == '__main__':
     # debug()

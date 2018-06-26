@@ -86,7 +86,12 @@ class GenericCNN(ABC):
 
         timestamp = str(int(time.time()))
         print('time_stamp=', timestamp)
-        log_directory_path = os.path.join('logs', timestamp)
+        log_directory_path = os.path.join('logs', '{}-{}-{}-{}'.format(
+            self.__class__.__name__,
+            self._t,
+            self._image_type.value,
+            timestamp
+        ))
 
         self._model.fit_generator(
             train_generator,

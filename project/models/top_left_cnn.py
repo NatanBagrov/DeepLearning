@@ -25,7 +25,8 @@ class TopLeftCNN(GenericCNN):
         self._model = self.__class__._build_model(width, height,
                                                   post_activation_bn=True,
                                                   input_depth=t**2,
-                                                  classes=t**2)
+                                                  classes=t**2,
+                                                  learning_rate=1e-4)
 
     @staticmethod
     def _build_model(width, height,
@@ -96,23 +97,23 @@ class TopLeftCNN(GenericCNN):
         # )
 
         model = Sequential(
-            convolution(32, input_shape=(height, width, input_depth)) +
-            convolution(32) +
+            convolution(50, input_shape=(height, width, input_depth)) +
+            convolution(50) +
             max_pooling() +
-            convolution(64) +
-            convolution(64) +
+            convolution(100) +
+            convolution(100) +
             max_pooling() +
-            convolution(128) +
-            convolution(128) +
-            convolution(128) +
+            convolution(200) +
+            convolution(200) +
+            convolution(200) +
             max_pooling() +
-            convolution(256) +
-            convolution(256) +
-            convolution(256) +
+            convolution(400) +
+            convolution(400) +
+            convolution(400) +
             max_pooling() +
-            convolution(512) +
-            convolution(512) +
-            convolution(512) +
+            convolution(800) +
+            convolution(800) +
+            convolution(800) +
             max_pooling() +
             flatten() +
             fully_connected(1024) +
@@ -121,6 +122,7 @@ class TopLeftCNN(GenericCNN):
         )
 
         model.summary()
+        print('learning_rate=', learning_rate)
 
         optimizer = Adam(
             lr=learning_rate,
