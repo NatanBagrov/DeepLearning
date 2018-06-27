@@ -83,15 +83,16 @@ class SolverWithComparator:
             visualize = True
 
             if visualize:
-                os.makedirs('problems/{}/'.format(t), exist_ok=True)
+                directory_path = 'problems/{}/{}'.format(t, self._image_type)
+                os.makedirs(directory_path, exist_ok=True)
                 time_stamp = int(time.time())
 
                 Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation)],
                                            show=False,
-                                           save_path='problems/{}/{}-original.png'.format(t, time_stamp))
+                                           save_path=os.path.join(directory_path, '{}-original.png'.format(time_stamp)))
                 Visualizer.visualize_crops(shreds_permuted[np.argsort(permutation_predicted)],
                                            show=False,
-                                           save_path='problems/{}/{}-restored.png'.format(t, time_stamp))
+                                           save_path=os.path.join(directory_path, '{}-restored.png'.format(time_stamp)))
                 print('visualized')
 
         return current_accuracy
@@ -435,7 +436,7 @@ class SolverWithComparator:
                         print('Can not calculate log({})'.format(
                             top_index_to_bottom_index_to_probability[top_index][bottom_index])
                         )
-                        return float("-inf")
+                        log_objective = float("-inf")
 
                 if column + 1 < t:
                     left_index = row_to_column_to_crop_index[row][column]
