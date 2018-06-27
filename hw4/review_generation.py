@@ -1,11 +1,34 @@
+import os
+
 import numpy as np
 
 from next_number_choosers import temperature_number_chooser_generator, stochastic_number_chooser
 
 
-def generate_negative_then_positive_reviews(model, num_reviews, print_online=False):
+def generate_reviews_and_write_to_files(model, num_reviews):
+    review_generators = [generate_negative_then_positive_reviews,
+                         generate_negative_reviews,
+                         generate_positive_reviews]
+    titles = ['Negative_then_positive', 'Negative', 'Positive']
+    model_name = model.__class__.__name__
+    dir_name = 'reviews'
+    os.makedirs(dir_name, exist_ok=True)
+    for title, review_generator in zip(titles, review_generators):
+        filename = os.path.join(dir_name, '{}.txt'.format(model_name))
+        with open(filename, "a") as f:
+            f.write(title)
+            f.write('\n')
+        for list_of_words in review_generator(model, num_reviews, print_online=True):
+            review = ' '.join(list_of_words)
+            with open(filename, "a") as f:
+                f.write(review)
+                f.write("\n")
+
+
+def generate_negative_then_positive_reviews(model, num_reviews, print_online=False, relative_part_pos=0.5):
     review_length = model._review_shape[0]
-    sentiment = ([0, ] * (review_length // 2)) + ([1, ] * (review_length - review_length // 2))
+    t = 1 / 1 - relative_part_pos
+    sentiment = ([0, ] * (review_length // t)) + ([1, ] * (review_length - review_length // t))
     number_chooser = temperature_number_chooser_generator(0.5)
     return [_generate_review_aux(model, sentiment, number_chooser, print_online) for _ in range(num_reviews)]
 
