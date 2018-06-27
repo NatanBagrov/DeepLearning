@@ -148,7 +148,7 @@ def prepare_data_characters(preview=0, train_length=sys.maxsize, test_length=sys
     print('max review length: ', max_review_length)
     print('median review length: ', median_review_length)
     print('mean review length: ', mean_review_length)
-    review_length = 200
+    review_length = median_review_length
     print('review length: ', review_length)
 
     train_x_review, train_y_review = convert_to_x_y(reviews_train, review_length,
