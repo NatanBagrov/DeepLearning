@@ -61,6 +61,7 @@ class ReviewSentimentClassifier:
         return tokens
 
     def get_probability(self, review):
+        self._model.reset_states()
         tokens = self._tokenize_review(review)
         seq_in = sequence.pad_sequences([tokens], maxlen=self._max_review_length, truncating='post')
         return self._model.predict_on_batch(seq_in)[0]
