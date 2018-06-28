@@ -14,11 +14,12 @@ from keras.layers import Dense, Activation, TimeDistributed, Add, LSTM, RNN, Bat
 from keras.losses import sparse_categorical_crossentropy
 from keras.metrics import categorical_accuracy
 from keras.optimizers import Adam
-from keras.utils import plot_model
+from keras.preprocessing import sequence
+from keras.utils import plot_model, to_categorical
+from nltk.translate.bleu_score import corpus_bleu
 
-from review_generation import generate_negative_reviews, generate_negative_then_positive_reviews, \
-    generate_positive_reviews
-from word_data_preparation import inverse_dictionary, SpecialConstants, prepare_data_words
+from review_generation import generate_reviews_and_write_to_files
+from word_data_preparation import inverse_dictionary, SpecialConstants, prepare_data_words, convert_to_column
 
 
 def plot_history(history, title, show=False):
@@ -37,6 +38,10 @@ def plot_history(history, title, show=False):
 
     if show:
         plt.show()
+
+
+def _convert_column_strings_to_string(numbers):
+    return [str(x) for x in numbers.T.reshape(len(numbers))]
 
 
 class WordLevelReviewGenerator:
@@ -90,15 +95,22 @@ class WordLevelReviewGenerator:
             yield self._index_to_word[index] if self._index_to_word[index] != 'br' else '<line_break>'
 
     def _generate_numbers(self, seed: str, index_to_sentiment, next_word_chooser):
-        result = np.zeros([1, ] + list(self._review_shape))
+        pad_to_len = self._review_shape[0]
+        current_review_len = len(index_to_sentiment)
+        result = np.zeros([1, ] + list((current_review_len,)))
         seed = np.array([SpecialConstants.START.value] +
-                        [self._word_to_index[w.lower()] for w in seed.split(' ')]) if len(seed) > 0 else []
+                        [self._word_to_index[w] if w in self._word_to_index.keys()
+                         else SpecialConstants.OUT_OF_VOCABULARY.value
+                         for w in seed.lower().split(' ')]) if len(seed) > 0 else []
         result[0, :len(seed)] = seed
+
+        result = sequence.pad_sequences(result, maxlen=pad_to_len, padding='post', truncating='post',
+                                        value=SpecialConstants.PADDING.value)
 
         for index in range(1, len(seed)):
             yield result[0, index]
 
-        for index in range(len(seed), result.shape[1]):
+        for index in range(len(seed), current_review_len):
             self._model.reset_states()
             current_sentiment = np.array([index_to_sentiment[index]])
             prediction = self._model.predict([result, current_sentiment])
@@ -209,6 +221,22 @@ class WordLevelReviewGenerator:
 
         return model
 
+    def evaluate(self, test_data, weights=(0.5, 0.5, 0, 0)):
+        (test_reviews, test_sentiments), test_y = test_data
+        # Total mess but it works :(
+        bleu_score = 0.0
+        num_samples = len(test_reviews)
+        for i in range(num_samples):
+            predicted_y = self._model.predict([np.expand_dims(test_reviews[i], 0), test_sentiments[i]], verbose=1)
+            numbers = convert_to_column(np.argmax(predicted_y[0], axis=1))
+            num_to_word = lambda n: self._index_to_word[n]
+            vfunc = np.vectorize(num_to_word)
+            list_str_pred = _convert_column_strings_to_string(vfunc(numbers))
+            list_str_true = _convert_column_strings_to_string(vfunc(test_y[i]))
+            bleu_score += corpus_bleu(list_str_true, list_str_pred, weights=weights)
+
+        return bleu_score / num_samples
+
     @staticmethod
     def _get_lstm_class() -> RNN.__class__:
         return LSTM
@@ -221,31 +249,30 @@ def main():
         test_length = 20
         epochs = 10
     elif 'relaxed' in sys.argv:
-        train_length = 15000
-        test_length = 15000
-        epochs = 40
+        train_length = 5000
+        test_length = 5000
+        epochs = 20
     else:
         train_length = sys.maxsize
         test_length = sys.maxsize
-        epochs = 60
+        epochs = 40
 
     train_data, validation_data, index_to_word = prepare_data_words(preview=10,
                                                                     train_length=train_length,
                                                                     test_length=test_length,
-                                                                    top_words=8000)
+                                                                    top_words=12000)
     model = WordLevelReviewGenerator(index_to_word, train_data[0][0].shape[1])
 
     if 'predict' in sys.argv:
         print("Predicting...")
+        model.load_weights(os.path.join('weights', '{}.h5'.format(model.__class__.__name__)))
+        generate_reviews_and_write_to_files(model, num_reviews=10, review_length=50)
+    elif 'evaluate' in sys.argv:
+        print("Evaluating...")
         model.load_weights()
-        num_reviews = 10
-        list_of_reviews = \
-            generate_negative_then_positive_reviews(model, num_reviews, print_online=True) + \
-            generate_negative_reviews(model, num_reviews, print_online=True) + \
-            generate_positive_reviews(model, num_reviews, print_online=True)
-        pass
-
+        print('Bleu:', model.evaluate(validation_data))
     else:
+        print("Fitting the model...")
         history = model.fit(train_data, validation_data, epochs=epochs)
         # plot_history(history, "20k top words")
 
