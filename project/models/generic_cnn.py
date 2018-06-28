@@ -200,7 +200,12 @@ class GenericCNN(ABC):
 
     @staticmethod
     def _std_of_a_list(images_list):
-        std = np.std(np.concatenate(list(map(np.ndarray.flatten, images_list))))
+        mean = GenericCNN._mean_of_a_list(images_list)
+        std = np.sqrt(
+            np.sum(list(map(lambda image: np.sum(np.power(image.astype(float) - mean, 2)), images_list))) /
+            np.sum(list(map(lambda image: np.prod(image.shape).astype(float), images_list))))
+
+        # _std = np.std(np.concatenate(list(map(np.ndarray.flatten, images_list))))
 
         return std
 
