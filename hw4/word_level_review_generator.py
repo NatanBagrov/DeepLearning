@@ -14,11 +14,11 @@ from keras.layers import Dense, Activation, TimeDistributed, Add, LSTM, RNN, Bat
 from keras.losses import sparse_categorical_crossentropy
 from keras.metrics import categorical_accuracy
 from keras.optimizers import Adam
+from keras.preprocessing import sequence
 from keras.utils import plot_model, to_categorical
 from nltk.translate.bleu_score import corpus_bleu
 
-from review_generation import generate_negative_reviews, generate_negative_then_positive_reviews, \
-    generate_positive_reviews, generate_reviews_and_write_to_files
+from review_generation import generate_reviews_and_write_to_files
 from word_data_preparation import inverse_dictionary, SpecialConstants, prepare_data_words, convert_to_column
 
 
@@ -95,17 +95,22 @@ class WordLevelReviewGenerator:
             yield self._index_to_word[index] if self._index_to_word[index] != 'br' else '<line_break>'
 
     def _generate_numbers(self, seed: str, index_to_sentiment, next_word_chooser):
-        result = np.zeros([1, ] + list(self._review_shape))
+        pad_to_len = self._review_shape[0]
+        current_review_len = len(index_to_sentiment)
+        result = np.zeros([1, ] + list((current_review_len,)))
         seed = np.array([SpecialConstants.START.value] +
                         [self._word_to_index[w] if w in self._word_to_index.keys()
                          else SpecialConstants.OUT_OF_VOCABULARY.value
                          for w in seed.lower().split(' ')]) if len(seed) > 0 else []
         result[0, :len(seed)] = seed
 
+        result = sequence.pad_sequences(result, maxlen=pad_to_len, padding='post', truncating='post',
+                                        value=SpecialConstants.PADDING.value)
+
         for index in range(1, len(seed)):
             yield result[0, index]
 
-        for index in range(len(seed), result.shape[1]):
+        for index in range(len(seed), current_review_len):
             self._model.reset_states()
             current_sentiment = np.array([index_to_sentiment[index]])
             prediction = self._model.predict([result, current_sentiment])
@@ -261,7 +266,7 @@ def main():
     if 'predict' in sys.argv:
         print("Predicting...")
         model.load_weights(os.path.join('weights', '{}.h5'.format(model.__class__.__name__)))
-        generate_reviews_and_write_to_files(model, 10)
+        generate_reviews_and_write_to_files(model, num_reviews=10, review_length=50)
     elif 'evaluate' in sys.argv:
         print("Evaluating...")
         model.load_weights()
