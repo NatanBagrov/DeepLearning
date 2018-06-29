@@ -13,6 +13,7 @@ from utils.data_manipulations import resize_to, shred_and_resize_to
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 from utils.visualizer import Visualizer
+from utils.decorators import deprecated
 from models.comparator_cnn import ComparatorCNN
 
 
@@ -292,32 +293,118 @@ class SolverWithComparator:
     ):
         t_square = left_index_to_right_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
+        best_log_objective = float("-inf")
+        best_shred_index_to_original_index = list(range(t_square))
 
         assert t**2 == t_square
 
-        if iterate_on_bottom:
-            first_shred_row = t_square
-
-            if not column_then_row:
-                first_reversed =
+        if column_then_row and iterate_on_right or not column_then_row and iterate_on_bottom:
+            first_indices = list(reversed(range(t)))
         else:
-            first_shred_row = 0
+            first_indices = list(range(t))
 
-        if iterate_on_right:
-            first_shred_column = t_square
+        if column_then_row and iterate_on_bottom or not column_then_row and iterate_on_right:
+            second_indices = list(reversed(range(t)))
         else:
-            first_shred_column = 0
-
-        row_to_column_to_shred_index = [[None, ] * t for row in range(t)]
+            second_indices = list(range(t))
 
         for first_shred_index in range(t_square):
-            previous_row = None
-            previous_column = None
+            current_shred_index_to_original_index = SolverWithComparator._continue_predicting_in_generic_order(
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability,
+                column_then_row,
+                first_shred_index,
+                first_indices,
+                second_indices
+            )
 
+            current_objective, current_log_objective = SolverWithComparator._compute_objective(
+                     current_shred_index_to_original_index,
+                     left_index_to_right_index_to_probability,
+                     top_index_to_bottom_index_to_probability
+            )
 
+            if current_log_objective > best_log_objective:
+                best_log_objective = current_log_objective
+                best_shred_index_to_original_index = current_shred_index_to_original_index
 
+        return best_shred_index_to_original_index
 
+    @staticmethod
+    def _continue_predicting_in_generic_order(
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability,
+            column_then_row: bool,
+            first_shred_index,
+            first_indices,
+            second_indices,
+    ):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        t = int(round(math.sqrt(t_square)))
+        row_to_column_to_shred_index = [[None, ] * t for row in range(t)]
+        current_shred_index_to_original_index = [None, ] * t_square
 
+        for first_index in first_indices:
+            for second_index in second_indices:
+                if column_then_row:
+                    column = first_index
+                    row = second_index
+                else:
+                    row = first_index
+                    column = second_index
+
+                if first_indices[0] == first_index and second_indices[0] == second_index:
+                    row_to_column_to_shred_index[row][column] = first_shred_index
+                    current_shred_index_to_original_index[first_shred_index] = row * t + column
+                else:
+                    best_probability = float("-inf")
+                    best_shred_index = None
+
+                    for shred_index in range(t_square):
+                        if current_shred_index_to_original_index[shred_index] is None:
+                            current_probability = 1.0
+
+                            for row_change, column_change in ((-1, 0), (+1, 0), (0, -1), (0, +1)):
+                                if 0 != row_change and 0 <= row + row_change < t \
+                                        and row_to_column_to_shred_index[row + row_change][column] is not None:
+                                    if row_change == -1:
+                                        top_index = row_to_column_to_shred_index[row + row_change][column]
+                                        bottom_index = shred_index
+                                    else:
+                                        top_index = shred_index
+                                        bottom_index = row_to_column_to_shred_index[row + row_change][column]
+
+                                    vertical_probability = \
+                                        top_index_to_bottom_index_to_probability[top_index][bottom_index]
+                                else:
+                                    vertical_probability = 1.0
+
+                                if 0 != column_change and 0 <= column + column_change < t \
+                                        and row_to_column_to_shred_index[row][column + column_change] is not None:
+                                    if column_change == -1:
+                                        left_index = row_to_column_to_shred_index[row][column + column_change]
+                                        right_index = shred_index
+                                    else:
+                                        left_index = shred_index
+                                        right_index = row_to_column_to_shred_index[row][column + column_change]
+
+                                    horizontal_probability = \
+                                        left_index_to_right_index_to_probability[left_index][right_index]
+                                else:
+                                    horizontal_probability = 1.0
+
+                                current_probability *= vertical_probability * horizontal_probability
+
+                            if current_probability > best_probability:
+                                best_probability = current_probability
+                                best_shred_index = shred_index
+
+                    row_to_column_to_shred_index[row][column] = best_shred_index
+                    current_shred_index_to_original_index[best_shred_index] = row * t + column
+
+        return current_shred_index_to_original_index
+
+    # TODO: REMOVE ME, I AM DEPRECATED AND LEFT ONLY FOR DEBUG!
     @staticmethod
     def _predict_greedy_from_bottom_right_row_than_column(left_index_to_right_index_to_probability,
                                                           top_index_to_bottom_index_to_probability):
@@ -333,6 +420,7 @@ class SolverWithComparator:
 
         return crop_position_in_original_image
 
+    # TODO: REMOVE ME, I AM DEPRECATED AND LEFT ONLY FOR DEBUG!
     @staticmethod
     def _predict_greedy_iterating_on_bottom_right_row_than_column(left_index_to_right_index_to_probability,
                                                                   top_index_to_bottom_index_to_probability):
@@ -348,6 +436,7 @@ class SolverWithComparator:
 
         return crop_position_in_original_image
 
+    # TODO: REMOVE ME, I AM DEPRECATED AND LEFT ONLY FOR DEBUG!
     @staticmethod
     def _predict_greedy_from_top_left_row_than_column(left_index_to_right_index_to_probability,
                                                       top_index_to_bottom_index_to_probability):
@@ -375,6 +464,7 @@ class SolverWithComparator:
 
         return crop_position_in_original_image
 
+    # TODO: REMOVE ME, I AM DEPRECATED AND LEFT ONLY FOR DEBUG!
     @staticmethod
     def _predict_greedy_iterating_on_top_left_row_than_column(left_index_to_right_index_to_probability,
                                                               top_index_to_bottom_index_to_probability):
@@ -399,6 +489,7 @@ class SolverWithComparator:
 
         return best_crop_position_in_original_image
 
+    # TODO: REMOVE ME, I AM DEPRECATED AND LEFT ONLY FOR DEBUG!
     @staticmethod
     def _continue_greedy_given_top_left_first_row_than_column(top_left_index,
                                                               left_index_to_right_index_to_probability,
@@ -492,33 +583,40 @@ class SolverWithComparator:
     def _predict_greedy(self,
                         left_index_to_right_index_to_probability,
                         top_index_to_bottom_index_to_probability):
-        crop_position_in_original_image_1 = \
-            self.__class__._predict_greedy_iterating_on_top_left_row_than_column(
-                left_index_to_right_index_to_probability,
-                top_index_to_bottom_index_to_probability)
-        crop_position_in_original_image_2 = \
-            self.__class__._predict_greedy_iterating_on_bottom_right_row_than_column(
-                left_index_to_right_index_to_probability,
-                top_index_to_bottom_index_to_probability)
+        best_log_objective = float("-inf")
+        best_crop_position_in_original_image = None
+        best_configuration = None
 
-        objective_1, log_objective_1 = self.__class__._compute_objective(
-            crop_position_in_original_image_1,
-            left_index_to_right_index_to_probability,
-            top_index_to_bottom_index_to_probability)
+        for iterate_on_bottom in (False, True):
+            for iterate_on_right in (False, True):
+                for column_then_row in (False, True):
+                    current_crop_position_in_original_image = \
+                        SolverWithComparator._predict_greedy_iterating_on_generic_in_generic_order(
+                        left_index_to_right_index_to_probability,
+                        top_index_to_bottom_index_to_probability,
+                        iterate_on_bottom,
+                        iterate_on_right,
+                        column_then_row
+                    )
 
-        objective_2, log_objective_2 = self.__class__._compute_objective(
-            crop_position_in_original_image_2,
-            left_index_to_right_index_to_probability,
-            top_index_to_bottom_index_to_probability)
+                    current_objective, current_log_objective = \
+                        SolverWithComparator._compute_objective(
+                            current_crop_position_in_original_image,
+                            left_index_to_right_index_to_probability,
+                            top_index_to_bottom_index_to_probability)
 
-        if log_objective_1 < log_objective_2:
-            print('Using bottom right')
-            crop_position_in_original_image = crop_position_in_original_image_2
-        else:
-            print('Using top left')
-            crop_position_in_original_image = crop_position_in_original_image_2
+                    if best_crop_position_in_original_image is None or current_log_objective > best_log_objective:
+                        best_log_objective = current_log_objective
+                        best_configuration = (iterate_on_bottom, iterate_on_right, column_then_row)
+                        best_crop_position_in_original_image = current_crop_position_in_original_image
 
-        return crop_position_in_original_image
+        print('Using {} {} {}-wise'.format(
+            'bottom' if best_configuration[0] else 'top',
+            'right' if best_configuration[1] else 'left',
+            'column' if best_configuration[2] else 'row',
+        ))
+
+        return best_crop_position_in_original_image
 
 
 def main():
@@ -566,16 +664,19 @@ def main():
 
         if image_type == ImageType.IMAGES:
             get_images = DataProvider().get_fish_images
+            mean = 100.52933494138787
+            std = 65.69793156777682
         else:
             get_images = DataProvider().get_docs_images
+            mean = 241.46115784237548
+            std = 49.512839464023564
 
         images, names = get_images(num_samples=number_of_samples, return_names=True)
 
         images_train, images_validation, names_train, names_validation = train_test_split(images, names,
                                                                                           random_state=42)
         t_to_comparator = {
-            t: ComparatorCNN(t, width, height, image_type)
-                ._fit_standardisation(images_train)
+            t: ComparatorCNN(t, width, height, image_type, mean=mean, std=std)
                 .load_weights()
             for t in ts
         }
