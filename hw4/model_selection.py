@@ -1,15 +1,18 @@
 import os
 import pickle
 import sys
+import itertools
 
 import numpy as np
+from nltk.translate.bleu_score import corpus_bleu
 
 from character_level_review_generator import CharacterLevelReviewGenerator
-from data_preparation import prepare_data_characters
+from data_preparation import prepare_data_characters, prepare_data_for_as_words_lists, SpecialConstants
 from review_generation import generate_negative_then_positive_reviews
 from review_sentiment_classifier import ReviewSentimentClassifier
 from word_data_preparation import prepare_data_words, prepare_data_common
 from word_level_review_generator import WordLevelReviewGenerator
+from next_number_choosers import greedy_number_chooser
 
 
 def _scale_review_generator(min, max):
@@ -39,6 +42,53 @@ class ModelSelector:
         # char_stats = self._get_statistics(self._char_model, num_reviews_per_threshold, review_length) TODO
 
         # TODO: plot some nice graphs...
+
+    @staticmethod
+    def _generate_reviews(model, next_word_chooser, seeds, is_positive, review_length,
+                          file_path_to_cache=None, force=False):
+        if file_path_to_cache is None or force or not os.path.isfile(file_path_to_cache):
+            print('Calculating'.format(file_path_to_cache))
+            index_to_sentiment = [int(is_positive), ] * review_length
+            generated_reviews = list()
+
+            for current_seed in seeds:
+                current_review = ''.join(itertools.islice(
+                    model.generate_string(current_seed, index_to_sentiment, next_word_chooser),
+                    review_length))
+                current_review = current_review.split(' ')
+                generated_reviews.append(current_review)
+
+            print('Dumping to {}'.format(file_path_to_cache))
+
+            if file_path_to_cache is not None:
+                with open(file_path_to_cache, 'wb') as file_handler_to_cache:
+                    pickle.dump(generated_reviews, file_handler_to_cache)
+        else:
+            print('Restoring from {}'.format(file_path_to_cache))
+
+            with open(file_path_to_cache, 'rb') as file_handler_to_cache:
+                generated_reviews = pickle.load(file_handler_to_cache)
+
+        return generated_reviews
+
+    @staticmethod
+    def _measure_sentiments_score(model, next_word_chooser,
+                                  seeds, is_positive, review_length,
+                                  test_data):
+        generated_reviews = ModelSelector._generate_reviews(
+            model, next_word_chooser, seeds, is_positive, review_length,
+            file_path_to_cache='cache/reviews-by-{}.pkl'.format(model.__class__.__name__))
+        (test_reviews, test_sentiments) = test_data
+        positive_reviews = test_reviews[1 == test_sentiments]
+        negative_reviews = test_reviews[0 == test_sentiments]
+        positive_blue = corpus_bleu([positive_reviews, ] * len(generated_reviews), generated_reviews)
+        negative_blue = corpus_bleu([negative_reviews, ] * len(generated_reviews), generated_reviews)
+
+        if (is_positive and negative_blue < positive_blue) \
+                or (not is_positive and negative_blue > positive_blue):
+            print('Warning!')
+
+        return positive_blue, negative_blue
 
     def _get_statistics(self, model, num_reviews_per_threshold, review_length, pickle_path=None):
         thresholds = [0, 0.25, 0.5, 0.75, 1]
@@ -80,9 +130,11 @@ def _get_word_level_model():
 
 
 def _get_char_level_model():
-    return None  # TODO: implement
-    train_data, validation_data, index_to_character = prepare_data_characters(preview=10)
-    char_model = CharacterLevelReviewGenerator(index_to_character, train_data[0][0].shape[1])
+    train_data, validation_data, index_to_character = prepare_data_characters(preview=10,
+                                                                              train_length=10,
+                                                                              test_length=10)
+    review_length = 923
+    char_model = CharacterLevelReviewGenerator(index_to_character, review_length)
     char_model.load_weights(
         os.path.join('weights', char_model.__class__.__name__ + '.h5'))  # TODO: note this, place file in correct folder
 
@@ -102,6 +154,13 @@ def _get_sentiment_classifier():
 if __name__ == '__main__':
     word_model = _get_word_level_model()
     char_model = _get_char_level_model()
+
+    _, test_data = prepare_data_for_as_words_lists(train_length=0, test_length=10)
+
+    ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
+                                            ['this movie is', 'the movie was', 'waste'],
+                                            True, 50, test_data)
+
     review_sentiment_classifier = _get_sentiment_classifier()
 
     ms = ModelSelector(char_model, word_model, review_sentiment_classifier)

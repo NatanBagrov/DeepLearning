@@ -108,6 +108,13 @@ def decode_join_tokenize(review, index_to_word: dict, character_to_index: dict, 
     return tokens
 
 
+# TODO: use it for decode_join_tokenize
+def decode_words(numbers, index_to_word: dict):
+    words = list(map(index_to_word.get, numbers))
+
+    return words
+
+
 def convert_to_x_y(reviews, length, end_of_line_token, vocabulary_size):
     x = sequence.pad_sequences(
         reviews,
@@ -179,3 +186,22 @@ def prepare_data_characters(preview=0, train_length=sys.maxsize, test_length=sys
     return ((train_x_review, sentiments_train), train_y_review), \
            ((test_x_review, sentiments_test), test_y_review), \
            index_to_character
+
+
+def prepare_data_for_as_words_lists(preview=0, train_length=sys.maxsize, test_length=sys.maxsize):
+    (reviews_train, sentiments_train), (reviews_test, sentiments_test), index_to_word = \
+        prepare_data_common(preview=preview, train_length=train_length, test_length=test_length)
+
+    reviews_train = np.array(list(map(lambda current_review: decode_words(current_review, index_to_word)[1:],
+                                      reviews_train)))
+    reviews_test = np.array(list(map(lambda current_review: decode_words(current_review, index_to_word)[1:],
+                                     reviews_test)))
+
+    for index in range(preview):
+        print(reviews_test[index], reviews_test[index])
+
+    return (reviews_train, sentiments_train), (reviews_test, sentiments_test)
+
+
+
+

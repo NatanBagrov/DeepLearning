@@ -65,6 +65,11 @@ class CharacterLevelReviewGenerator:
 
         return history
 
+    def generate_string(self, seed: str, index_to_sentiment, next_word_chooser):
+        # TODO: use next_word_chooser
+        for character in self.generate_greedy_string(seed, index_to_sentiment):
+            yield character
+
     def generate_greedy_string(self, seed: str, index_to_sentiment):
         seed = encode_characters(seed, self._character_to_index)
 
@@ -79,7 +84,7 @@ class CharacterLevelReviewGenerator:
         for index in range(1, len(seed)):
             yield np.argmax(result[0, index])
 
-        for index in range(len(seed), result.shape[1]):
+        for index in range(len(seed) - 1, result.shape[1]):
             self._model.reset_states()
             prediction = self._model.predict([result, np.array([index_to_sentiment[index]])])
             number_to_probability = prediction[0][index - 1]
@@ -154,7 +159,7 @@ class CharacterLevelReviewGenerator:
                 pre_activation_batch_normalization() +
                 [Activation(relu)] +
                 post_activation_batch_normalization() +
-                [TimeDistributed(Dense(1024))] +
+                [TimeDistributed(Dense(512))] +
                 pre_activation_batch_normalization() +
                 [Activation(relu)] +
                 post_activation_batch_normalization() +
