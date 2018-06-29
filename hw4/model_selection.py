@@ -93,7 +93,9 @@ class ModelSelector:
                                   test_data):
         generated_reviews = ModelSelector._generate_reviews(
             model, next_word_chooser, seeds, is_positive, review_length,
-            file_path_to_cache='cache/reviews-by-{}.pkl'.format(model.__class__.__name__),
+            file_path_to_cache='cache/{}-reviews-by-{}.pkl'.format(
+                'positive' if is_positive else 'negative',
+                model.__class__.__name__),
             preview=2
         )
         (test_reviews, test_sentiments) = test_data
@@ -106,7 +108,7 @@ class ModelSelector:
                 or (not is_positive and negative_blue < positive_blue):
             print('Warning:', end='')
 
-        print(positive_blue, negative_blue)
+        print('Score:', positive_blue, negative_blue)
 
         return positive_blue, negative_blue
 
@@ -177,16 +179,42 @@ if __name__ == '__main__':
 
     _, test_data = prepare_data_for_as_words_lists(train_length=0, test_length=10)
 
+    # Most popular first word
+    seeds = [
+        'i',
+        'this',
+        'the',
+        'a',
+        'if',
+        'in',
+        'when',
+        'as',
+        'it',
+    ]
+    # Average word length
+    characters_in_word = 4.353004514277807
+
+    words_number = min(200, 200)
+    characters_number = min(923, round(characters_in_word * words_number))
+
     ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
-                                            ['this movie is', 'the movie was', 'waste'],
-                                            True, 5, test_data)
+                                            seeds,
+                                            True, words_number, test_data)
 
     ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
-                                            ['this movie is', 'the movie was', 'waste'],
-                                            True, 50, test_data)
+                                            seeds,
+                                            True, characters_number, test_data)
 
-    review_sentiment_classifier = _get_sentiment_classifier()
+    ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
+                                            seeds,
+                                            False, words_number, test_data)
 
-    ms = ModelSelector(char_model, word_model, review_sentiment_classifier)
-    pickle_path = 'reviews'
-    ms.compare_models(num_reviews_per_threshold=10, review_length=100, pickle_path=pickle_path)
+    ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
+                                            seeds,
+                                            False, characters_number, test_data)
+
+    # review_sentiment_classifier = _get_sentiment_classifier()
+    #
+    # ms = ModelSelector(char_model, word_model, review_sentiment_classifier)
+    # pickle_path = 'reviews'
+    # ms.compare_models(num_reviews_per_threshold=10, review_length=100, pickle_path=pickle_path)
