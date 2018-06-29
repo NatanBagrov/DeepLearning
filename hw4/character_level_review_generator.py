@@ -79,12 +79,13 @@ class CharacterLevelReviewGenerator:
     def _generate_greedy_numbers(self,  seed, index_to_sentiment):
         result = np.zeros([1, ] + list(self._review_shape))
         seed = [SpecialConstants.START.value, self._character_to_index[' ']] + seed
+        index_to_sentiment = [index_to_sentiment[0], index_to_sentiment[0]] + index_to_sentiment
         result[0, :len(seed)] = to_categorical(seed, num_classes=len(self._character_to_index))
 
-        for index in range(1, len(seed)):
+        for index in range(2, len(seed)):
             yield np.argmax(result[0, index])
 
-        for index in range(len(seed) - 1, result.shape[1]):
+        for index in range(len(seed), result.shape[1]):
             self._model.reset_states()
             prediction = self._model.predict([result, np.array([index_to_sentiment[index]])])
             number_to_probability = prediction[0][index - 1]

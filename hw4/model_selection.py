@@ -64,6 +64,11 @@ class ModelSelector:
                     model.generate_string(current_seed, index_to_sentiment, next_word_chooser),
                     review_length))
                 current_review = current_review.split(' ')
+
+                # Patch for character level model.
+                while '' in current_review:
+                    current_review.remove('')
+
                 generated_reviews.append(current_review)
 
             print('Dumping to {}'.format(file_path_to_cache))
@@ -97,9 +102,11 @@ class ModelSelector:
         positive_blue = corpus_bleu([positive_reviews, ] * len(generated_reviews), generated_reviews)
         negative_blue = corpus_bleu([negative_reviews, ] * len(generated_reviews), generated_reviews)
 
-        if (is_positive and negative_blue < positive_blue) \
-                or (not is_positive and negative_blue > positive_blue):
-            print('Warning!')
+        if (is_positive and negative_blue > positive_blue) \
+                or (not is_positive and negative_blue < positive_blue):
+            print('Warning:', end='')
+
+        print(positive_blue, negative_blue)
 
         return positive_blue, negative_blue
 
