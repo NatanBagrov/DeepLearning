@@ -33,9 +33,8 @@ IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH = {
             '1ia3P_a3oCmfqQTOHwYzlfjQVllqXZaTk',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-documents-model'),
         ),
-        # TODO: fix it
         5: (
-            '1rSbbUHQZFfahKfiZsHnMicOoq4uzED9S',  # TODO: fix it using images for now
+            '1NsUr6QCmjtc7XnZfTfFm-J7saNDNPFj-',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-documents-model'),
         ),
     }
