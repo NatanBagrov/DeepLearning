@@ -45,14 +45,22 @@ class ModelSelector:
 
     @staticmethod
     def _generate_reviews(model, next_word_chooser, seeds, is_positive, review_length,
-                          file_path_to_cache=None, force=False):
+                          file_path_to_cache=None, force=False, preview=0):
         if file_path_to_cache is None or force or not os.path.isfile(file_path_to_cache):
             print('Calculating'.format(file_path_to_cache))
             index_to_sentiment = [int(is_positive), ] * review_length
             generated_reviews = list()
 
+            # TODO: fix it better
+            if isinstance(model, CharacterLevelReviewGenerator):
+                separator = ''
+            elif isinstance(model, WordLevelReviewGenerator):
+                separator = ' '
+            else:
+                assert False
+
             for current_seed in seeds:
-                current_review = ''.join(itertools.islice(
+                current_review = separator.join(itertools.islice(
                     model.generate_string(current_seed, index_to_sentiment, next_word_chooser),
                     review_length))
                 current_review = current_review.split(' ')
@@ -69,6 +77,9 @@ class ModelSelector:
             with open(file_path_to_cache, 'rb') as file_handler_to_cache:
                 generated_reviews = pickle.load(file_handler_to_cache)
 
+        for review in generated_reviews[:preview]:
+            print(review)
+
         return generated_reviews
 
     @staticmethod
@@ -77,7 +88,9 @@ class ModelSelector:
                                   test_data):
         generated_reviews = ModelSelector._generate_reviews(
             model, next_word_chooser, seeds, is_positive, review_length,
-            file_path_to_cache='cache/reviews-by-{}.pkl'.format(model.__class__.__name__))
+            file_path_to_cache='cache/reviews-by-{}.pkl'.format(model.__class__.__name__),
+            preview=2
+        )
         (test_reviews, test_sentiments) = test_data
         positive_reviews = test_reviews[1 == test_sentiments]
         negative_reviews = test_reviews[0 == test_sentiments]
@@ -156,6 +169,10 @@ if __name__ == '__main__':
     char_model = _get_char_level_model()
 
     _, test_data = prepare_data_for_as_words_lists(train_length=0, test_length=10)
+
+    ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
+                                            ['this movie is', 'the movie was', 'waste'],
+                                            True, 5, test_data)
 
     ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
                                             ['this movie is', 'the movie was', 'waste'],
