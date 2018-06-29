@@ -16,6 +16,7 @@ from keras.callbacks import TensorBoard, ModelCheckpoint
 from nltk.translate.bleu_score import corpus_bleu
 
 from data_preparation import inverse_dictionary, encode_characters, decode_characters, SpecialConstants
+from next_number_choosers import temperature_number_chooser_generator
 
 
 class CharacterLevelReviewGenerator:
@@ -66,17 +67,12 @@ class CharacterLevelReviewGenerator:
         return history
 
     def generate_string(self, seed: str, index_to_sentiment, next_word_chooser):
-        # TODO: use next_word_chooser
-        for character in self.generate_greedy_string(seed, index_to_sentiment):
-            yield character
-
-    def generate_greedy_string(self, seed: str, index_to_sentiment):
         seed = encode_characters(seed, self._character_to_index)
 
-        for index in self._generate_greedy_numbers(seed, index_to_sentiment):
+        for index in self._generate_numbers(seed, index_to_sentiment, next_word_chooser):
             yield self._index_to_character[index]
 
-    def _generate_greedy_numbers(self,  seed, index_to_sentiment):
+    def _generate_numbers(self, seed, index_to_sentiment, next_word_chooser):
         result = np.zeros([1, ] + list(self._review_shape))
         seed = [SpecialConstants.START.value, self._character_to_index[' ']] + seed
         index_to_sentiment = [index_to_sentiment[0], index_to_sentiment[0]] + index_to_sentiment
@@ -85,11 +81,11 @@ class CharacterLevelReviewGenerator:
         for index in range(2, len(seed)):
             yield np.argmax(result[0, index])
 
-        for index in range(len(seed), result.shape[1]):
+        for index in range(len(seed), len(index_to_sentiment)):
             self._model.reset_states()
             prediction = self._model.predict([result, np.array([index_to_sentiment[index]])])
             number_to_probability = prediction[0][index - 1]
-            number = np.argmax(number_to_probability)
+            number = next_word_chooser(number_to_probability)
             result[0, index, number] = 1
 
             yield number
@@ -236,24 +232,34 @@ def main():
     train_data, validation_data, index_to_character = prepare_data_characters(preview=10,
                                                                               train_length=train_length,
                                                                               test_length=test_length)
-    model = CharacterLevelReviewGenerator(index_to_character, train_data[0][0].shape[1])
+    model = CharacterLevelReviewGenerator(index_to_character, 923)
 
     if 'predict' in sys.argv:
         model.load_weights()
+        review_length = 20
 
-        for character in model.generate_greedy_string(
+        for character in model.generate_string(
                 "",
-                ([0, ] * (train_data[0][0].shape[1] // 2)) +
-                ([1, ] * (train_data[0][0].shape[1] - train_data[0][0].shape[1] // 2))
+                ([0, ] * (review_length // 2)) +
+                ([1, ] * (review_length - review_length // 2)),
+                temperature_number_chooser_generator(0.5),
         ):
             print(character, end='', flush=True)
         print()
 
-        for character in model.generate_greedy_string("", [0, ] * train_data[0][0].shape[1]):
+        for character in model.generate_string(
+                "",
+                [0, ] * review_length,
+                temperature_number_chooser_generator(0.5),
+        ):
             print(character, end='', flush=True)
         print()
 
-        for character in model.generate_greedy_string("", [1, ] * train_data[0][0].shape[1]):
+        for character in model.generate_string(
+                "",
+                [1, ] * review_length,
+                temperature_number_chooser_generator(0.5),
+        ):
             print(character, end='', flush=True)
         print()
     elif 'evaluate' in sys.argv:
