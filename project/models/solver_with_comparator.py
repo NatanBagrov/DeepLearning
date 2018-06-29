@@ -283,12 +283,48 @@ class SolverWithComparator:
         return result
 
     @staticmethod
-    def _predict_greedy_from_bottom_right(left_index_to_right_index_to_probability,
-                                          top_index_to_bottom_index_to_probability):
+    def _predict_greedy_iterating_on_generic_in_generic_order(
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability,
+            iterate_on_bottom: bool,
+            iterate_on_right: bool,
+            column_then_row: bool,
+    ):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        t = int(round(math.sqrt(t_square)))
+
+        assert t**2 == t_square
+
+        if iterate_on_bottom:
+            first_shred_row = t_square
+
+            if not column_then_row:
+                first_reversed =
+        else:
+            first_shred_row = 0
+
+        if iterate_on_right:
+            first_shred_column = t_square
+        else:
+            first_shred_column = 0
+
+        row_to_column_to_shred_index = [[None, ] * t for row in range(t)]
+
+        for first_shred_index in range(t_square):
+            previous_row = None
+            previous_column = None
+
+
+
+
+
+    @staticmethod
+    def _predict_greedy_from_bottom_right_row_than_column(left_index_to_right_index_to_probability,
+                                                          top_index_to_bottom_index_to_probability):
         t_square = left_index_to_right_index_to_probability.shape[0]
         right_index_to_left_index_to_probability = np.transpose(left_index_to_right_index_to_probability)
         bottom_index_to_top_index_to_probability = np.transpose(top_index_to_bottom_index_to_probability)
-        crop_position_in_transposed_image = SolverWithComparator._predict_greedy_from_top_left(
+        crop_position_in_transposed_image = SolverWithComparator._predict_greedy_from_top_left_row_than_column(
             right_index_to_left_index_to_probability,
             bottom_index_to_top_index_to_probability,
         )
@@ -298,12 +334,12 @@ class SolverWithComparator:
         return crop_position_in_original_image
 
     @staticmethod
-    def _predict_greedy_iterating_on_bottom_right(left_index_to_right_index_to_probability,
-                                                  top_index_to_bottom_index_to_probability):
+    def _predict_greedy_iterating_on_bottom_right_row_than_column(left_index_to_right_index_to_probability,
+                                                                  top_index_to_bottom_index_to_probability):
         t_square = left_index_to_right_index_to_probability.shape[0]
         right_index_to_left_index_to_probability = np.transpose(left_index_to_right_index_to_probability)
         bottom_index_to_top_index_to_probability = np.transpose(top_index_to_bottom_index_to_probability)
-        crop_position_in_transposed_image = SolverWithComparator._predict_greedy_iterating_on_top_left(
+        crop_position_in_transposed_image = SolverWithComparator._predict_greedy_iterating_on_top_left_row_than_column(
             right_index_to_left_index_to_probability,
             bottom_index_to_top_index_to_probability,
         )
@@ -313,8 +349,8 @@ class SolverWithComparator:
         return crop_position_in_original_image
 
     @staticmethod
-    def _predict_greedy_from_top_left(left_index_to_right_index_to_probability,
-                                      top_index_to_bottom_index_to_probability):
+    def _predict_greedy_from_top_left_row_than_column(left_index_to_right_index_to_probability,
+                                                      top_index_to_bottom_index_to_probability):
         t_square = left_index_to_right_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
         assert t**2 == t_square
@@ -331,7 +367,7 @@ class SolverWithComparator:
                 top_left_probability = current_probability
                 top_left_index = second_index
 
-        crop_position_in_original_image = SolverWithComparator._continue_greedy_given_top_left(
+        crop_position_in_original_image = SolverWithComparator._continue_greedy_given_top_left_first_row_than_column(
             top_left_index,
             left_index_to_right_index_to_probability,
             top_index_to_bottom_index_to_probability
@@ -340,14 +376,14 @@ class SolverWithComparator:
         return crop_position_in_original_image
 
     @staticmethod
-    def _predict_greedy_iterating_on_top_left(left_index_to_right_index_to_probability,
-                                              top_index_to_bottom_index_to_probability):
+    def _predict_greedy_iterating_on_top_left_row_than_column(left_index_to_right_index_to_probability,
+                                                              top_index_to_bottom_index_to_probability):
         t_square = left_index_to_right_index_to_probability.shape[0]
         best_objective = float("-inf")
         best_crop_position_in_original_image = list(range(t_square))
 
         for top_left_index in range(t_square):
-            current_crop_position_in_original_image = SolverWithComparator._continue_greedy_given_top_left(
+            current_crop_position_in_original_image = SolverWithComparator._continue_greedy_given_top_left_first_row_than_column(
                 top_left_index,
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability)
@@ -364,9 +400,9 @@ class SolverWithComparator:
         return best_crop_position_in_original_image
 
     @staticmethod
-    def _continue_greedy_given_top_left(top_left_index,
-                                        left_index_to_right_index_to_probability,
-                                        top_index_to_bottom_index_to_probability):
+    def _continue_greedy_given_top_left_first_row_than_column(top_left_index,
+                                                              left_index_to_right_index_to_probability,
+                                                              top_index_to_bottom_index_to_probability):
         t_square = top_index_to_bottom_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
         order = [top_left_index, ]
@@ -457,11 +493,11 @@ class SolverWithComparator:
                         left_index_to_right_index_to_probability,
                         top_index_to_bottom_index_to_probability):
         crop_position_in_original_image_1 = \
-            self.__class__._predict_greedy_iterating_on_top_left(
+            self.__class__._predict_greedy_iterating_on_top_left_row_than_column(
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability)
         crop_position_in_original_image_2 = \
-            self.__class__._predict_greedy_iterating_on_bottom_right(
+            self.__class__._predict_greedy_iterating_on_bottom_right_row_than_column(
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability)
 
@@ -544,7 +580,7 @@ def main():
             for t in ts
         }
 
-        clf = SolverWithComparator(t_to_comparator)
+        clf = SolverWithComparator(t_to_comparator, image_type=image_type)
         print('Train: ', names_train)
         accuracy = clf.evaluate(images_train, epochs=epochs, ts=ts)
         print('Train 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
