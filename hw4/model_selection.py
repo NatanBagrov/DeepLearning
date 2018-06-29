@@ -12,7 +12,7 @@ from review_generation import generate_negative_then_positive_reviews
 from review_sentiment_classifier import ReviewSentimentClassifier
 from word_data_preparation import prepare_data_words, prepare_data_common
 from word_level_review_generator import WordLevelReviewGenerator
-from next_number_choosers import greedy_number_chooser
+from next_number_choosers import greedy_number_chooser, temperature_number_chooser_generator
 
 
 def _scale_review_generator(min, max):
@@ -93,9 +93,11 @@ class ModelSelector:
                                   test_data):
         generated_reviews = ModelSelector._generate_reviews(
             model, next_word_chooser, seeds, is_positive, review_length,
-            file_path_to_cache='cache/{}-reviews-by-{}.pkl'.format(
+            file_path_to_cache='cache/{}-reviews-by-{}-with-{}.pkl'.format(
                 'positive' if is_positive else 'negative',
-                model.__class__.__name__),
+                model.__class__.__name__,
+                next_word_chooser.__name__,
+            ),
             preview=2
         )
         (test_reviews, test_sentiments) = test_data
@@ -196,18 +198,19 @@ if __name__ == '__main__':
 
     words_number = min(200, 200)
     characters_number = min(923, round(characters_in_word * words_number))
+    number_chooser = temperature_number_chooser_generator(0.5)
 
-    ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
+    ModelSelector._measure_sentiments_score(word_model, number_chooser,
+                                            seeds,
+                                            False, words_number, test_data)
+
+    ModelSelector._measure_sentiments_score(word_model, number_chooser,
                                             seeds,
                                             True, words_number, test_data)
 
-    ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
+    ModelSelector._measure_sentiments_score(char_model, number_chooser,
                                             seeds,
                                             True, characters_number, test_data)
-
-    ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
-                                            seeds,
-                                            False, words_number, test_data)
 
     ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
                                             seeds,
