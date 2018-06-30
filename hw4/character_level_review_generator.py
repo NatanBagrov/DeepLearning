@@ -17,6 +17,7 @@ from nltk.translate.bleu_score import corpus_bleu
 
 from data_preparation import inverse_dictionary, encode_characters, decode_characters, SpecialConstants
 from next_number_choosers import temperature_number_chooser_generator
+from plotting import PlotCallback
 
 
 class CharacterLevelReviewGenerator:
@@ -60,7 +61,17 @@ class CharacterLevelReviewGenerator:
             validation_data=([validation_reviews, validation_sentiments], validation_y),
             callbacks=[
                 TensorBoard(log_dir=os.path.join('logs', time_stamp)),
-                ModelCheckpoint(model_file_path, monitor='val_categorical_accuracy', save_best_only=True)
+                ModelCheckpoint(model_file_path, monitor='val_categorical_accuracy', save_best_only=True),
+                PlotCallback([
+                    'val_categorical_accuracy',
+                    'categorical_accuracy',
+                ],
+                    file_path=os.path.join('graphs', time_stamp, 'accuracy.png')),
+                PlotCallback([
+                    'loss',
+                    'val_loss',
+                ],
+                    file_path=os.path.join('graphs', time_stamp, 'loss.png')),
             ]
         )
 
@@ -196,7 +207,7 @@ class CharacterLevelReviewGenerator:
         return LSTM
         # return CuDNNLSTM
 
-    # TODO: is it what should be done?
+    # TODO: REMOVE ME
     def evaluate(self, test_data):
         (test_reviews, test_sentiments), test_y = test_data
 
@@ -227,7 +238,7 @@ def main():
     else:
         train_length = sys.maxsize
         test_length = sys.maxsize
-        epochs = 40
+        epochs = 100
 
     train_data, validation_data, index_to_character = prepare_data_characters(preview=10,
                                                                               train_length=train_length,

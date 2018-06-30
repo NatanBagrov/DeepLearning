@@ -1,6 +1,7 @@
 import sys
 
 import numpy as np
+from sklearn.model_selection import train_test_split
 from keras.datasets import imdb
 from keras.preprocessing import sequence
 
@@ -38,11 +39,16 @@ def prepare_word_to_index_to_word(preview=0, top_words=5000):
 
 
 def prepare_data_common(preview=0, train_length=sys.maxsize, test_length=sys.maxsize, top_words=5000):
-    (reviews_train, sentiments_train), (reviews_test, sentiments_test) = imdb.load_data(
+    (x, y), _ = imdb.load_data(
         start_char=SpecialConstants.START.value,
         oov_char=SpecialConstants.OUT_OF_VOCABULARY.value,
         num_words=top_words
     )
+
+    reviews_train, reviews_test, sentiments_train, sentiments_test = train_test_split(x, y,
+                                                                                      test_size=0.1,
+                                                                                      stratify=y,
+                                                                                      random_state=1)
 
     reviews_train = reviews_train[:train_length]
     sentiments_train = sentiments_train[:train_length]
