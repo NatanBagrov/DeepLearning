@@ -196,7 +196,7 @@ class CharacterLevelReviewGenerator:
         return LSTM
         # return CuDNNLSTM
 
-    # TODO: is it what should be done?
+    # TODO: REMOVE ME
     def evaluate(self, test_data):
         (test_reviews, test_sentiments), test_y = test_data
 

@@ -3,6 +3,7 @@ import sys
 from enum import Enum
 
 import numpy as np
+from sklearn.model_selection import train_test_split
 from keras.datasets import imdb
 from keras.preprocessing import sequence
 from keras.utils import to_categorical
@@ -51,11 +52,11 @@ def prepare_character_to_index(preview=0):
 
 def prepare_data_common(preview=0, train_length=sys.maxsize, test_length=sys.maxsize):
     index_to_word = prepare_index_to_word(preview=preview)
-    # TODO: fix me
-    (reviews_train, sentiments_train), (reviews_test, sentiments_test) = imdb.load_data(
+    (x, y), _ = imdb.load_data(
         start_char=SpecialConstants.START.value,
         oov_char=SpecialConstants.OUT_OF_VOCABULARY.value
     )
+    reviews_train, reviews_test, sentiments_train, sentiments_test = train_test_split(x, y, test_size=0.1)
 
     reviews_train = reviews_train[:train_length]
     sentiments_train = sentiments_train[:train_length]
@@ -155,7 +156,7 @@ def prepare_data_characters(preview=0, train_length=sys.maxsize, test_length=sys
     print('max review length: ', max_review_length)
     print('median review length: ', median_review_length)
     print('mean review length: ', mean_review_length)
-    review_length = median_review_length
+    review_length = 923  # median_review_length
     print('review length: ', review_length)
 
     train_x_review, train_y_review = convert_to_x_y(reviews_train, review_length,
