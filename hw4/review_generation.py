@@ -35,7 +35,7 @@ def generate_negative_then_positive_reviews(model, num_reviews, review_len=None,
     :param review_len: the length of each review
     :param print_online: print the next word/char while generating the review
     :param pos_ratio: when to turn negative to positive. CHOOSE 0 for negative review and 1 for positive
-    :return:
+    :return: a list of lists of word
     '''
     review_length = model._review_shape[0] if review_len is None else review_len
     print("Generating a review that starts negative and turns positive, by a ratio of: {}".format(pos_ratio))

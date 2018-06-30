@@ -4,6 +4,7 @@ import sys
 import itertools
 
 import numpy as np
+import matplotlib.pyplot as plt
 from nltk.translate.bleu_score import corpus_bleu
 
 from character_level_review_generator import CharacterLevelReviewGenerator
@@ -12,7 +13,7 @@ from review_generation import generate_negative_then_positive_reviews
 from review_sentiment_classifier import ReviewSentimentClassifier
 from word_data_preparation import prepare_data_words, prepare_data_common
 from word_level_review_generator import WordLevelReviewGenerator
-from next_number_choosers import greedy_number_chooser
+from next_number_choosers import greedy_number_chooser, temperature_number_chooser_generator
 
 
 def _scale_review_generator(min, max):
@@ -22,6 +23,21 @@ def _scale_review_generator(min, max):
 
 def identity_scaler(p):
     return p
+
+
+def _do_bleu(references, hypotheses, weight_combination):
+    return corpus_bleu([references, ] * len(hypotheses), hypotheses, weights=weight_combination)
+
+
+def calc_and_plot_correlation(x, y, texts: dict):
+    print(np.corrcoef(x, y)[0, 1])
+    plt.plot(x, y, marker='o')
+    if texts is not None:
+        plt.title(texts['title'])
+        plt.xlabel(texts['x'])
+        plt.ylabel(texts['y'])
+    plt.show()
+    plt.clf()
 
 
 class ModelSelector:
@@ -91,6 +107,7 @@ class ModelSelector:
     def _measure_sentiments_score(model, next_word_chooser,
                                   seeds, is_positive, review_length,
                                   test_data):
+        os.makedirs('cache', exist_ok=True)
         generated_reviews = ModelSelector._generate_reviews(
             model, next_word_chooser, seeds, is_positive, review_length,
             file_path_to_cache='cache/{}-reviews-by-{}.pkl'.format(
@@ -133,6 +150,8 @@ class ModelSelector:
             print('{} threshold produces {} probability of positive sentiment'.format(threshold, average))
             model_classifier_sentiments.append(average)
 
+        model_generated_reviews['sentiments'] = model_classifier_sentiments
+
         if pickle_path is not None:
             os.makedirs(pickle_path, exist_ok=True)
             filepath = os.path.join(pickle_path, '{}_reviews.pkl'.format(model.__class__.__name__))
@@ -141,6 +160,40 @@ class ModelSelector:
                 pickle.dump(model_generated_reviews, f)
 
         return model_classifier_sentiments, model_generated_reviews
+
+    @staticmethod
+    def get_bleu_score(generated_reviews_dict, test_data, weight_combinations):
+        (test_reviews, test_sentiments) = test_data
+        positive_reviews = test_reviews[1 == test_sentiments]
+        negative_reviews = test_reviews[0 == test_sentiments]
+        positive_generated_reviews = generated_reviews_dict[100]
+        negative_generated_reviews = generated_reviews_dict[0]
+        overall_scores = dict()
+        overall_scores['x'] = 'BLEU method'
+        overall_scores['y'] = 'score'
+        overall_scores['title'] = 'BLEU scores for 30 generated reviews'
+        overall_scores['xticks'] = weight_combinations
+        full_scores = list()
+        for weights in weight_combinations:
+            pos_ref_to_pos_gen_bleu = _do_bleu(positive_reviews, positive_generated_reviews, weights)
+            pos_ref_to_neg_gen_bleu = _do_bleu(positive_reviews, negative_generated_reviews, weights)
+            neg_ref_to_neg_gen_bleu = _do_bleu(negative_reviews, negative_generated_reviews, weights)
+            neg_ref_to_pos_gen_bleu = _do_bleu(negative_reviews, positive_generated_reviews, weights)
+            all_30_reviews = generated_reviews_dict[0] + generated_reviews_dict[100] + generated_reviews_dict[50]
+            full_bleu = _do_bleu(test_reviews, all_30_reviews, weights)
+            print('BLEU for {} score:'.format(weights))
+            print('for 30 reviews on the test set is: {:.3f}'.format(full_bleu))
+            print('comparing POSITIVE test reviews with: ', end='', flush=True)
+            print('positive generated scores: {:.3f} ,'.format(pos_ref_to_pos_gen_bleu), end='', flush=True)
+            print('and with negative generated scores: {:.3f}'.format(pos_ref_to_neg_gen_bleu), end='', flush=True)
+            print()
+            print('comparing NEGATIVE test reviews with: ', end='', flush=True)
+            print('negative generated scores: {:.3f} ,'.format(neg_ref_to_neg_gen_bleu), end='', flush=True)
+            print('and with positive generated scores: {:.3f}'.format(neg_ref_to_pos_gen_bleu), end='', flush=True)
+            print()
+            print()
+            full_scores.append(full_bleu)
+        calc_and_plot_correlation(np.arange(4) + 1, full_scores, overall_scores)
 
 
 def _get_word_level_model():
@@ -158,7 +211,7 @@ def _get_char_level_model():
     review_length = 923
     char_model = CharacterLevelReviewGenerator(index_to_character, review_length)
     char_model.load_weights(
-        os.path.join('weights', char_model.__class__.__name__ + '.h5'))  # TODO: note this, place file in correct folder
+        os.path.join('weights', char_model.__class__.__name__ + '.h5'))
 
     return char_model
 
@@ -179,11 +232,32 @@ if __name__ == '__main__':
 
     _, test_data = prepare_data_for_as_words_lists(train_length=0, test_length=10)
 
+    if 'bleu_dict_word' in sys.argv:
+        with open(os.path.join('reviews', 'WordLevelReviewGenerator_reviews.pkl'), 'rb') as file_handler_to_cache:
+            generated_reviews = pickle.load(file_handler_to_cache)
+        weight_combinations = [(1, 0, 0, 0), (0.5, 0.5, 0, 0), (0.333, 0.333, 0.333, 0), (0.25, 0.25, 0.25, 0.25)]
+        ModelSelector.get_bleu_score(generated_reviews, test_data, weight_combinations)
+        exit(0)
+
+    if 'dump_dict_word' in sys.argv:
+        review_sentiment_classifier = _get_sentiment_classifier()
+        ms = ModelSelector(char_model, word_model, review_sentiment_classifier)
+        pickle_path = 'reviews'
+        ms._get_statistics(word_model, num_reviews_per_threshold=10, review_length=100, pickle_path=pickle_path)
+        exit(0)
+
+    if 'plot_corr_word' in sys.argv:
+        with open(os.path.join('reviews', 'WordLevelReviewGenerator_reviews.pkl'), 'rb') as file_handler_to_cache:
+            generated_reviews = pickle.load(file_handler_to_cache)
+        calc_and_plot_correlation([0, 0.25, 0.5, 0.75, 1], generated_reviews['sentiments'], None)
+
     # Most popular first word
     seeds = [
         'i',
         'this',
         'the',
+        'there',
+        "i'm",
         'a',
         'if',
         'in',
@@ -194,27 +268,21 @@ if __name__ == '__main__':
     # Average word length
     characters_in_word = 4.353004514277807
 
-    words_number = min(200, 200)
+    words_number = min(100, 200)
     characters_number = min(923, round(characters_in_word * words_number))
-
-    ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
+    print("Positive, word level")
+    ModelSelector._measure_sentiments_score(word_model, temperature_number_chooser_generator(0.5),
                                             seeds,
                                             True, words_number, test_data)
-
-    ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
+    print("Positive, char level")
+    ModelSelector._measure_sentiments_score(char_model, temperature_number_chooser_generator(0.5),
                                             seeds,
                                             True, characters_number, test_data)
-
-    ModelSelector._measure_sentiments_score(word_model, greedy_number_chooser,
+    print("Negative, word level")
+    ModelSelector._measure_sentiments_score(word_model, temperature_number_chooser_generator(0.5),
                                             seeds,
                                             False, words_number, test_data)
-
-    ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
+    print("Negative, char level")
+    ModelSelector._measure_sentiments_score(char_model, temperature_number_chooser_generator(0.5),
                                             seeds,
                                             False, characters_number, test_data)
-
-    # review_sentiment_classifier = _get_sentiment_classifier()
-    #
-    # ms = ModelSelector(char_model, word_model, review_sentiment_classifier)
-    # pickle_path = 'reviews'
-    # ms.compare_models(num_reviews_per_threshold=10, review_length=100, pickle_path=pickle_path)
