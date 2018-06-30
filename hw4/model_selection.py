@@ -4,7 +4,6 @@ import sys
 import itertools
 
 import numpy as np
-import matplotlib.pyplot as plt
 from nltk.translate.bleu_score import corpus_bleu
 
 from character_level_review_generator import CharacterLevelReviewGenerator
@@ -14,6 +13,7 @@ from review_sentiment_classifier import ReviewSentimentClassifier
 from word_data_preparation import prepare_data_words, prepare_data_common
 from word_level_review_generator import WordLevelReviewGenerator
 from next_number_choosers import greedy_number_chooser, temperature_number_chooser_generator
+from plotting import plt
 
 
 def _scale_review_generator(min, max):
@@ -60,11 +60,13 @@ class ModelSelector:
         # TODO: plot some nice graphs...
 
     @staticmethod
-    def _generate_reviews(model, next_word_chooser, seeds, is_positive, review_length,
+    def _generate_reviews(model, next_word_chooser, seeds, positiveness, review_length,
                           file_path_to_cache=None, force=False, preview=0):
         if file_path_to_cache is None or force or not os.path.isfile(file_path_to_cache):
             print('Calculating'.format(file_path_to_cache))
-            index_to_sentiment = [int(is_positive), ] * review_length
+            positive_suffix_length = max(0, min(review_length, int(round(positiveness * review_length / 100.0))))
+            negative_prefix_length = review_length - positive_suffix_length
+            index_to_sentiment = [0,] * negative_prefix_length + [1,] * positive_suffix_length
             generated_reviews = list()
 
             # TODO: fix it better
@@ -102,34 +104,6 @@ class ModelSelector:
             print(review)
 
         return generated_reviews
-
-    @staticmethod
-    def _measure_sentiments_score(model, next_word_chooser,
-                                  seeds, is_positive, review_length,
-                                  test_data):
-        os.makedirs('cache', exist_ok=True)
-        generated_reviews = ModelSelector._generate_reviews(
-            model, next_word_chooser, seeds, is_positive, review_length,
-            file_path_to_cache='cache/{}-reviews-by-{}-with-{}.pkl'.format(
-                'positive' if is_positive else 'negative',
-                model.__class__.__name__,
-                next_word_chooser.__name__,
-            ),
-            preview=2
-        )
-        (test_reviews, test_sentiments) = test_data
-        positive_reviews = test_reviews[1 == test_sentiments]
-        negative_reviews = test_reviews[0 == test_sentiments]
-        positive_blue = corpus_bleu([positive_reviews, ] * len(generated_reviews), generated_reviews)
-        negative_blue = corpus_bleu([negative_reviews, ] * len(generated_reviews), generated_reviews)
-
-        if (is_positive and negative_blue > positive_blue) \
-                or (not is_positive and negative_blue < positive_blue):
-            print('Warning:', end='')
-
-        print('Score:', positive_blue, negative_blue)
-
-        return positive_blue, negative_blue
 
     def _get_statistics(self, model, num_reviews_per_threshold, review_length, pickle_path=None):
         thresholds = [0, 0.25, 0.5, 0.75, 1]
@@ -254,17 +228,18 @@ if __name__ == '__main__':
         calc_and_plot_correlation([0, 0.25, 0.5, 0.75, 1], generated_reviews['sentiments'], None)
 
     # Most popular first word
-    seeds = [
-        'i',
-        'this',
-        'the',
-        'a',
-        'if',
-        'in',
-        'when',
-        'as',
-        'it',
-    ]
+    # seeds = [
+    #     'i',
+    #     'this',
+    #     'the',
+    #     'a',
+    #     'if',
+    #     'in',
+    #     'when',
+    #     'as',
+    #     'it',
+    # ]
+    seeds = ['the movie was', 'this movie']
     # Average word length
     characters_in_word = 4.353004514277807
 
@@ -272,21 +247,27 @@ if __name__ == '__main__':
     characters_number = min(923, round(characters_in_word * words_number))
     number_chooser = temperature_number_chooser_generator(0.5)
 
-    ModelSelector._measure_sentiments_score(word_model, number_chooser,
-                                            seeds,
-                                            False, words_number, test_data)
+    reviews = {
+        positiveness: ModelSelector._generate_reviews(
+            char_model,
+            number_chooser,
+            seeds,
+            positiveness,
+            characters_number,
+            file_path_to_cache='cache/{}%-positive-reviews-with-{}-characters-by-{}-with-{}'.format(
+                positiveness,
+                characters_number,
+                char_model.__class__.__name__,
+                number_chooser.__name__
+            )
+        )
+        for positiveness in (0, 50, 100)
+    }
 
-    ModelSelector._measure_sentiments_score(word_model, number_chooser,
-                                            seeds,
-                                            True, words_number, test_data)
+    ModelSelector.get_bleu_score(reviews,
+                                 test_data,
+                                 [(1, 0, 0, 0), (0.5, 0.5, 0, 0), (0.333, 0.333, 0.333, 0), (0.25, 0.25, 0.25, 0.25)])
 
-    ModelSelector._measure_sentiments_score(char_model, number_chooser,
-                                            seeds,
-                                            True, characters_number, test_data)
-
-    ModelSelector._measure_sentiments_score(char_model, greedy_number_chooser,
-                                            seeds,
-                                            False, characters_number, test_data)
 
     # review_sentiment_classifier = _get_sentiment_classifier()
     #
