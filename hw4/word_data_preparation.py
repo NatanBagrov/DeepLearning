@@ -45,7 +45,10 @@ def prepare_data_common(preview=0, train_length=sys.maxsize, test_length=sys.max
         num_words=top_words
     )
 
-    reviews_train, reviews_test, sentiments_train, sentiments_test = train_test_split(x, y, test_size=0.1)
+    reviews_train, reviews_test, sentiments_train, sentiments_test = train_test_split(x, y,
+                                                                                      test_size=0.1,
+                                                                                      stratify=y,
+                                                                                      random_state=1)
 
     reviews_train = reviews_train[:train_length]
     sentiments_train = sentiments_train[:train_length]
