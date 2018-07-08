@@ -119,7 +119,7 @@ class ComparatorCNN(GenericCNN):
             output_layer()
         )
 
-        # model.summary()
+        model.summary()
 
         optimizer = Adam(
             lr=learning_rate,
@@ -224,7 +224,7 @@ class ComparatorCNN(GenericCNN):
                     else:
                         tensor = ComparatorCNN._prepare_left_right_check(image_above, image_beyond)
 
-                    assert (height, width, 2) == tensor.shape
+                    assert (height, width, 2) == tensor.shape, "{}!={}".format((height, width, 2), tensor.shape)
 
                     x.append(tensor)
 
@@ -288,8 +288,8 @@ def main():
 
     np.random.seed(42)
 
-    width = 224
-    height = 224
+    width = 2200 // 5
+    height = 2200 // 5
     batch_size = 32
 
     for t in ts:
