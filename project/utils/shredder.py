@@ -29,6 +29,7 @@ class Shredder:
                 result.append(crop)
         if shuffle_shreds:
             shuffle(result)
+        #TODO: is it slways posib;e?
         return np.stack(result, axis=0)
 
     @staticmethod

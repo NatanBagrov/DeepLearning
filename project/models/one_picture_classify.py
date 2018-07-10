@@ -94,7 +94,7 @@ class OnePictureClassify:
             batch_size=batch_size,
             epochs=epochs,
             callbacks=[
-                PlotCallback(['loss', 'val_loss'],
+                PlotCallba_get_model_checkpoint_file_pathck(['loss', 'val_loss'],
                              file_path='graphs/one_picture_classify_{}_{}_loss.png'.format(
                                  self._t,
                                  self._image_type.value),
