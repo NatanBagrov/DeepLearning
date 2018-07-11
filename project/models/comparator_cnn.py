@@ -119,7 +119,7 @@ class ComparatorCNN(GenericCNN):
             output_layer()
         )
 
-        # model.summary()
+        model.summary()
 
         optimizer = Adam(
             lr=learning_rate,
@@ -166,6 +166,10 @@ class ComparatorCNN(GenericCNN):
         return tensor
 
     @staticmethod
+    def _is_same_patch(patch_a, patch_b):
+        return np.linalg.norm(patch_a - patch_b) < 1e-12  # TODO: EPSILON IS HARDCODED
+
+    @staticmethod
     def _generate_regular_shreds_stratified(images: list, width, height, t, batch_size=None):
         number_of_samples = len(images)
         sample_index_to_shred_index_to_image = shred_and_resize_to(images, t, (width, height))
@@ -189,51 +193,59 @@ class ComparatorCNN(GenericCNN):
                 y = list()
 
                 for batch_index in range(batch_size):
-                    is_top = np.random.choice((False, True))
-                    sample = np.random.choice(len(images))
-                    row, col = np.random.choice(t, size=2)
+                    while len(x) <= batch_index:
+                        is_top = np.random.choice((False, True))
+                        sample = np.random.choice(len(images))
+                        row, col = np.random.choice(t, size=2)
 
-                    if is_top:
-                        neighbour_row = row + 1
-                        neighbour_col = col
-                        is_edge = neighbour_row == t
-                    else:
-                        neighbour_row = row
-                        neighbour_col = col + 1
-                        is_edge = neighbour_col == t
+                        if is_top:
+                            neighbour_row = row + 1
+                            neighbour_col = col
+                            is_edge = neighbour_row == t
+                        else:
+                            neighbour_row = row
+                            neighbour_col = col + 1
+                            is_edge = neighbour_col == t
 
-                    if is_edge:
-                        p = probabilities_edge
-                    else:
-                        assert options[neighbour_row * t + neighbour_col] == neighbour_row * t + neighbour_col
-                        probabilities_regular_pattern[neighbour_row * t + neighbour_col] = 1.0 / 2.0
-                        p = probabilities_regular_pattern
+                        if is_edge:
+                            p = probabilities_edge
+                        else:
+                            assert options[neighbour_row * t + neighbour_col] == neighbour_row * t + neighbour_col
+                            probabilities_regular_pattern[neighbour_row * t + neighbour_col] = 1.0 / 2.0
+                            p = probabilities_regular_pattern
 
-                    second_row_col = np.random.choice(options, p=p)
-                    second_row = second_row_col // t
-                    second_col = second_row_col % t
+                        second_row_col = np.random.choice(options, p=p)
+                        second_row = second_row_col // t
+                        second_col = second_row_col % t
 
-                    if not is_edge:
-                        probabilities_regular_pattern[neighbour_row * t + neighbour_col] = 1.0 / (2.0 * (t**2 - 1.0))
+                        if not is_edge:
+                            probabilities_regular_pattern[neighbour_row * t + neighbour_col] = 1.0 / (2.0 * (t**2 - 1.0))
 
-                    image_above = sample_index_to_shred_index_to_image[sample, row * t + col]
-                    image_beyond = sample_index_to_shred_index_to_image[sample, second_row * t + second_col]
+                        image_above = sample_index_to_shred_index_to_image[sample, row * t + col]
+                        image_beyond = sample_index_to_shred_index_to_image[sample, second_row * t + second_col]
+                        same = ComparatorCNN._is_same_patch(image_above, image_beyond)
 
-                    if is_top:
-                        tensor = ComparatorCNN._prepare_top_bottom_check(image_above, image_beyond)
-                    else:
-                        tensor = ComparatorCNN._prepare_left_right_check(image_above, image_beyond)
+                        if same:
+                            print('Same patch is sampled at ({},{}) and ({},{}). Skipping'.format(
+                                row, col,
+                                second_row, second_col))
+                            continue
 
-                    assert (height, width, 2) == tensor.shape
+                        if is_top:
+                            tensor = ComparatorCNN._prepare_top_bottom_check(image_above, image_beyond)
+                        else:
+                            tensor = ComparatorCNN._prepare_left_right_check(image_above, image_beyond)
 
-                    x.append(tensor)
+                        assert (height, width, 2) == tensor.shape, "{}!={}".format((height, width, 2), tensor.shape)
 
-                    if neighbour_row == second_row and neighbour_col == second_col:
-                        one_hot = [0, 1]
-                    else:
-                        one_hot = [1, 0]
+                        x.append(tensor)
 
-                    y.append(one_hot)
+                        if neighbour_row == second_row and neighbour_col == second_col:
+                            one_hot = [0, 1]
+                        else:
+                            one_hot = [1, 0]
+
+                        y.append(one_hot)
 
                 x = np.stack(x)
                 y = np.stack(y)
@@ -288,8 +300,8 @@ def main():
 
     np.random.seed(42)
 
-    width = 224
-    height = 224
+    width = 2200 // 5
+    height = 2200 // 5
     batch_size = 32
 
     for t in ts:

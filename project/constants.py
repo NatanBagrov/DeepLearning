@@ -13,29 +13,29 @@ IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH = {
     ImageType.IMAGES: {
         2: (
             '1BMYopQX2_rh1aC1zn51ALeQGxGMrOkPH',
-            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-2-images-model')
+            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-2-images-model.h5')
         ),
         4: (
             '1eL2G5etJwcoWnVjFXA7iBwppN-GCjaxv',
-            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-images-model')
+            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-images-model.h5')
         ),
         5: (
             '1rSbbUHQZFfahKfiZsHnMicOoq4uzED9S',
-            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-images-model')
+            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-images-model.h5')
         ),
     },
     ImageType.DOCUMENTS: {
         2: (
             '1SKm30kaAPMcCG095fSSfzgLr0XI5r4Ti',
-            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-2-documents-model'),
+            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-2-documents-model.h5'),
         ),
         4: (
             '1ia3P_a3oCmfqQTOHwYzlfjQVllqXZaTk',
-            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-documents-model'),
+            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-documents-model.h5'),
         ),
         5: (
             '1NsUr6QCmjtc7XnZfTfFm-J7saNDNPFj-',
-            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-documents-model'),
+            os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-documents-model.h5'),
         ),
     }
 }

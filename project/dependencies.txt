@@ -1,2 +1,4 @@
 sklearn
 pulp
+sinkhorn_knopp
+matplotlib
