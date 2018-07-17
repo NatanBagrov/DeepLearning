@@ -3,6 +3,7 @@ import sys
 import os
 import time
 from timeit import timeit
+import itertools
 
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -12,7 +13,6 @@ from utils.data_manipulations import resize_to, shred_and_resize_to
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 from utils.visualizer import Visualizer
-from utils.decorators import deprecated
 from models.comparator_cnn import ComparatorCNN
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
 
@@ -140,6 +140,12 @@ class SolverGreedy(GenericSolverWithComparator):
                     row_to_column_to_shred_index[row][column] = best_shred_index
                     current_shred_index_to_original_index[best_shred_index] = row * t + column
 
+        current_shred_index_to_original_index = SolverGreedy._try_to_improve_with_row_permutation(
+            current_shred_index_to_original_index,
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability,
+        )
+
         return current_shred_index_to_original_index
 
     def _predict(self,
@@ -180,6 +186,41 @@ class SolverGreedy(GenericSolverWithComparator):
 
         return best_crop_position_in_original_image
 
+    @staticmethod
+    def _try_to_improve_with_row_permutation(shred_index_to_original_index: list,
+                                             left_index_to_right_index_to_probability: np.array,
+                                             top_index_to_bottom_index_to_probability: np.array):
+        t = int(round(math.sqrt(len(shred_index_to_original_index))))
+        row_to_column_to_shred_index = \
+            GenericSolverWithComparator._shred_index_to_original_index_to_row_to_column_to_shred_index(
+                shred_index_to_original_index
+            )
+
+        best_shred_index_to_original_index = shred_index_to_original_index
+        best_objective, best_log_objective = GenericSolverWithComparator._compute_objective(
+            shred_index_to_original_index,
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability)
+
+        for row_permutation in itertools.permutations(range(t)):
+            current_row_to_column_to_shred_index = row_to_column_to_shred_index[list(row_permutation)]
+            current_shred_index_to_original_index = GenericSolverWithComparator.\
+                _row_to_column_to_shred_index_to_shred_index_to_original_index(
+                    current_row_to_column_to_shred_index
+                )
+            current_objective, current_log_objecitve = GenericSolverWithComparator._compute_objective(
+                current_shred_index_to_original_index,
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability
+            )
+
+            if best_log_objective < current_log_objecitve:
+                best_log_objective = current_log_objecitve
+                best_objective = current_objective
+                best_shred_index_to_original_index = current_shred_index_to_original_index
+
+        return best_shred_index_to_original_index
+
 
 def main():
     if 'debug' in sys.argv:
@@ -218,8 +259,8 @@ def main():
 
     np.random.seed(42)
 
-    width = 224
-    height = 224
+    width = 2200 // 5
+    height = 2200 // 5
 
     for image_type in image_types:
         print(image_type.value)
