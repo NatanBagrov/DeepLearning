@@ -36,3 +36,7 @@ def shred_shuffle_and_reconstruct(x, t):
         return list_of_images_to_numpy([f(im) for im in x[:]])
     else:  # Here, we got a list of images with different size
         return [f(v) for v in x]
+
+
+def shred_to_rows_and_resize_to(x: list, t, resize_shape):
+    return list_of_images_to_numpy(list(map(lambda image: resize_to(Shredder.shred_to_rows(image, t), resize_shape), x)))

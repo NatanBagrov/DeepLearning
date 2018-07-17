@@ -227,3 +227,6 @@ class GenericCNN(ABC):
             self._image_type.value
         )
 
+    @staticmethod
+    def _is_same_patch(patch_a, patch_b):
+        return np.linalg.norm(patch_a - patch_b) < 1e-12  # TODO: EPSILON IS HARDCODED
