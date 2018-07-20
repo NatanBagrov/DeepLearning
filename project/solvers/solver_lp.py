@@ -10,7 +10,8 @@ from solvers.generic_solver_with_comparator import GenericSolverWithComparator
 class SolverLP(GenericSolverWithComparator):
     def _predict(self,
                  left_index_to_right_index_to_probability,
-                 top_index_to_bottom_index_to_probability):
+                 top_index_to_bottom_index_to_probability,
+                 return_log_objective=False):
         print('Solving lp')
 
         t_square = left_index_to_right_index_to_probability.shape[0]
@@ -84,7 +85,7 @@ class SolverLP(GenericSolverWithComparator):
                                  ])
                       for index in range(t_square)]
 
-        return prediction
+        return (prediction, None) if return_log_objective else prediction
 
     @staticmethod
     def _partial_objective(index_to_row_to_column, first_to_second_to_probability, name):

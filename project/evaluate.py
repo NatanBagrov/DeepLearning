@@ -9,18 +9,18 @@ from models.fish_or_doc_classifier import FishOrDocClassifier
 from models.comparator_cnn import ComparatorCNN
 from models.solver_with_comparator import SolverWithComparator
 
-
-fish_or_doc_classifier = FishOrDocClassifier(weights_file=IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH[1])
+fish_or_doc_classifier = FishOrDocClassifier(weights_file=IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH.model_path)
 image_type_to_solver_with_comparator = {
-        image_type: SolverWithComparator({
-            t: ComparatorCNN(t,
-                             WIDTH, HEIGHT,
-                             image_type,
-                             IMAGE_TYPE_TO_MEAN[image_type], IMAGE_TYPE_TO_STD[image_type])
-                .load_weights(IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t][1])
-            for t in TS
-        },
-            image_type=image_type)
+    image_type: SolverWithComparator({
+        t: ComparatorCNN(t,
+                         IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].width,
+                         IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].height,
+                         image_type,
+                         IMAGE_TYPE_TO_MEAN[image_type], IMAGE_TYPE_TO_STD[image_type])
+            .load_weights(IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].model_path)
+        for t in TS
+    },
+        image_type=image_type)
     for image_type in ImageType
 }
 
@@ -50,8 +50,5 @@ def evaluate(file_dir='example/'):
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         images.append(im)
 
-
     Y = predict(images)
     return Y
-
-
