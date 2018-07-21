@@ -1,10 +1,15 @@
 import math
+import sys
 from timeit import timeit
 
 import numpy as np
+from sklearn.model_selection import train_test_split
 from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, lpDot, LpStatusOptimal, LpStatus
 
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
+from models.comparator_cnn import ComparatorCNN
+from utils.image_type import ImageType
+from utils.data_provider import DataProvider
 
 
 class SolverLP(GenericSolverWithComparator):
@@ -73,7 +78,7 @@ class SolverLP(GenericSolverWithComparator):
         problem += t * (t - 1) == lpSum(SolverLP._flatten(top_index_to_bottom_index_to_is_top))
 
         problem.writeLP('current-problem.lp')
-        print('took {}s'.format(timeit('problem.solve()', number=1)))
+        problem.solve()
 
         if LpStatusOptimal != problem.status:
             print('Warning: status is ', LpStatus[problem.status])
@@ -153,3 +158,78 @@ class SolverLP(GenericSolverWithComparator):
             result = [list_of_variables]
 
         return result
+
+
+def main():
+    if 'debug' in sys.argv:
+        print('Debug')
+        number_of_samples = 20
+        epochs = 1
+    else:
+        print('Release')
+        number_of_samples = sys.maxsize
+        epochs = 5
+
+    ts = list()
+
+    if '2' in sys.argv:
+        ts.append(2)
+
+    if '4' in sys.argv:
+        ts.append(4)
+
+    if '5' in sys.argv:
+        ts = [5,]
+
+    if 0 == len(ts):
+        ts = (2, 4, 5)
+
+    image_types = list()
+
+    if 'image' in sys.argv:
+        image_types.append(ImageType.IMAGES)
+
+    if 'document' in sys.argv:
+        image_types.append(ImageType.DOCUMENTS)
+
+    if 0 == len(image_types):
+        image_types = ImageType
+
+    np.random.seed(42)
+
+    width = 2200 // 5
+    height = 2200 // 5
+
+    for image_type in image_types:
+        print(image_type.value)
+
+        if image_type == ImageType.IMAGES:
+            get_images = DataProvider().get_fish_images
+            mean = 100.52933494138787
+            std = 65.69793156777682
+        else:
+            get_images = DataProvider().get_docs_images
+            mean = 241.46115784237548
+            std = 49.512839464023564
+
+        images, names = get_images(num_samples=number_of_samples, return_names=True)
+
+        images_train, images_validation, names_train, names_validation = train_test_split(images, names,
+                                                                                          random_state=42)
+        t_to_comparator = {
+            t: ComparatorCNN(t, width, height, image_type, mean=mean, std=std)
+                .load_weights()
+            for t in ts
+        }
+
+        clf = SolverLP(t_to_comparator, image_type=image_type)
+        print('Train: ', names_train)
+        accuracy = clf.evaluate(images_train, epochs=epochs, ts=ts)
+        print('Train 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
+        print('Validation: ', names_validation)
+        accuracy = clf.evaluate(images_validation, epochs=epochs, ts=ts)
+        print('Validation 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
+
+
+if __name__ == '__main__':
+    main()

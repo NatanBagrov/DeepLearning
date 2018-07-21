@@ -14,7 +14,6 @@ from utils.data_manipulations import resize_to, shred_and_resize_to
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 from utils.visualizer import Visualizer
-from utils.decorators import deprecated
 from models.comparator_cnn import ComparatorCNN
 
 
