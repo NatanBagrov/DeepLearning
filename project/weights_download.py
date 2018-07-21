@@ -45,12 +45,14 @@ def save_response_content(response, destination):
 def main():
     os.makedirs(WEIGHTS_DIRECTORY_PATH, exist_ok=True)
 
-    download_file_from_google_drive(*IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH)
+    download_file_from_google_drive(IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH.download_id,
+                                    IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH.model_path)
 
     for image_type in ImageType:
         for t in TS:
             download_file_from_google_drive(
-                *IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t]
+                IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].download_id,
+                IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].model_path
             )
 
 

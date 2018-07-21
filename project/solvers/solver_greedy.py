@@ -1,20 +1,13 @@
 import math
 import sys
-import os
-import time
-from timeit import timeit
 
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-from utils.shredder import Shredder
-from utils.data_manipulations import resize_to, shred_and_resize_to
-from utils.data_provider import DataProvider
-from utils.image_type import ImageType
-from utils.visualizer import Visualizer
-from utils.decorators import deprecated
 from models.comparator_cnn import ComparatorCNN
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
+from utils.data_provider import DataProvider
+from utils.image_type import ImageType
 
 
 class SolverGreedy(GenericSolverWithComparator):
@@ -34,7 +27,7 @@ class SolverGreedy(GenericSolverWithComparator):
         best_log_objective = float("-inf")
         best_shred_index_to_original_index = list(range(t_square))
 
-        assert t**2 == t_square
+        assert t ** 2 == t_square
 
         if column_then_row and iterate_on_right or not column_then_row and iterate_on_bottom:
             first_indices = list(reversed(range(t)))
@@ -57,9 +50,9 @@ class SolverGreedy(GenericSolverWithComparator):
             )
 
             current_objective, current_log_objective = SolverGreedy._compute_objective(
-                     current_shred_index_to_original_index,
-                     left_index_to_right_index_to_probability,
-                     top_index_to_bottom_index_to_probability
+                current_shred_index_to_original_index,
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability
             )
 
             if current_log_objective > best_log_objective:
@@ -144,7 +137,8 @@ class SolverGreedy(GenericSolverWithComparator):
 
     def _predict(self,
                  left_index_to_right_index_to_probability,
-                 top_index_to_bottom_index_to_probability):
+                 top_index_to_bottom_index_to_probability,
+                 return_log_objective=False):
         best_log_objective = float("-inf")
         best_crop_position_in_original_image = None
         best_configuration = None
@@ -154,12 +148,12 @@ class SolverGreedy(GenericSolverWithComparator):
                 for column_then_row in (False, True):
                     current_crop_position_in_original_image = \
                         SolverGreedy._predict_greedy_iterating_on_generic_in_generic_order(
-                        left_index_to_right_index_to_probability,
-                        top_index_to_bottom_index_to_probability,
-                        iterate_on_bottom,
-                        iterate_on_right,
-                        column_then_row
-                    )
+                            left_index_to_right_index_to_probability,
+                            top_index_to_bottom_index_to_probability,
+                            iterate_on_bottom,
+                            iterate_on_right,
+                            column_then_row
+                        )
 
                     current_objective, current_log_objective = \
                         SolverGreedy._compute_objective(
@@ -177,7 +171,8 @@ class SolverGreedy(GenericSolverWithComparator):
             'right' if best_configuration[1] else 'left',
             'column' if best_configuration[2] else 'row',
         ))
-
+        if return_log_objective:
+            return best_crop_position_in_original_image, best_log_objective
         return best_crop_position_in_original_image
 
 
@@ -200,7 +195,7 @@ def main():
         ts.append(4)
 
     if '5' in sys.argv:
-        ts = [5,]
+        ts = [5, ]
 
     if 0 == len(ts):
         ts = (2, 4, 5)
@@ -253,7 +248,10 @@ def main():
 
 
 def debug():
-    names_train = ['n01440764_11593.JPEG', 'n01440764_11602.JPEG', 'n01440764_4562.JPEG', 'n01440764_5148.JPEG', 'n01440764_11897.JPEG', 'n01440764_29057.JPEG', 'n01440764_22135.JPEG', 'n01440764_8003.JPEG', 'n01440764_3566.JPEG', 'n01440764_44.JPEG', 'n01440764_10910.JPEG', 'n01440764_10382.JPEG', 'n01440764_6508.JPEG', 'n01440764_10290.JPEG', 'n01440764_910.JPEG']
+    names_train = ['n01440764_11593.JPEG', 'n01440764_11602.JPEG', 'n01440764_4562.JPEG', 'n01440764_5148.JPEG',
+                   'n01440764_11897.JPEG', 'n01440764_29057.JPEG', 'n01440764_22135.JPEG', 'n01440764_8003.JPEG',
+                   'n01440764_3566.JPEG', 'n01440764_44.JPEG', 'n01440764_10910.JPEG', 'n01440764_10382.JPEG',
+                   'n01440764_6508.JPEG', 'n01440764_10290.JPEG', 'n01440764_910.JPEG']
     images_train, names_train = DataProvider.read_images('../images', names_train)
     indices = [4, 5, 13]
     images_validation = [images_train[index] for index in indices]
@@ -264,8 +262,8 @@ def debug():
     height = 224
     image_type = ImageType.IMAGES
 
-    cmp = ComparatorCNN(t, width, height, image_type)\
-        ._fit_standardisation(images_train)\
+    cmp = ComparatorCNN(t, width, height, image_type) \
+        ._fit_standardisation(images_train) \
         .load_weights()
 
     slv = SolverGreedy({t: cmp})

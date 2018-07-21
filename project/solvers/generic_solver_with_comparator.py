@@ -1,20 +1,14 @@
 import math
-import sys
 import os
 import time
-from timeit import timeit
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 
 import numpy as np
-from sklearn.model_selection import train_test_split
-from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, lpDot, LpStatusOptimal, LpStatus
 
-from utils.shredder import Shredder
-from utils.data_manipulations import resize_to, shred_and_resize_to
+from utils.data_manipulations import resize_to
 from utils.data_provider import DataProvider
-from utils.image_type import ImageType
+from utils.shredder import Shredder
 from utils.visualizer import Visualizer
-from models.comparator_cnn import ComparatorCNN
 
 
 class GenericSolverWithComparator(ABC):
@@ -22,7 +16,7 @@ class GenericSolverWithComparator(ABC):
         self._image_type = image_type
         self._t_to_comparator = t_to_comparator
 
-    def predict(self, shreds: list) -> list:
+    def predict(self, shreds: list, return_log_objective=False) -> list:
         t_square = len(shreds)
         t = int(round(math.sqrt(t_square)))
         assert t ** 2 == t_square
@@ -38,12 +32,13 @@ class GenericSolverWithComparator(ABC):
                 shreds,
                 comparator.predict_is_top_probability)
 
-        prediction = self._predict(
+        prediction_and_maybe_objective_log = self._predict(
             left_index_to_right_index_to_probability,
-            top_index_to_bottom_index_to_probability
+            top_index_to_bottom_index_to_probability,
+            return_log_objective
         )
 
-        return prediction
+        return prediction_and_maybe_objective_log
 
     def evaluate(self, images: list, ts=(2, 4, 5), epochs=1):
         index_to_accuracy = list()
@@ -123,9 +118,12 @@ class GenericSolverWithComparator(ABC):
                == first_index_to_second_index_to_second_image.shape
 
         first_index_to_second_index_to_first_image = np.reshape(first_index_to_second_index_to_first_image,
-                                                                (images.shape[0] ** 2, images.shape[1], images.shape[2]))
+                                                                (
+                                                                    images.shape[0] ** 2, images.shape[1],
+                                                                    images.shape[2]))
         first_index_to_second_index_to_second_image = np.reshape(first_index_to_second_index_to_second_image,
-                                                                (images.shape[0] ** 2, images.shape[1], images.shape[2]))
+                                                                 (images.shape[0] ** 2, images.shape[1],
+                                                                  images.shape[2]))
 
         first_index_to_second_index_to_probability = predict_probability(first_index_to_second_index_to_first_image,
                                                                          first_index_to_second_index_to_second_image)
@@ -186,5 +184,6 @@ class GenericSolverWithComparator(ABC):
         return objective, log_objective
 
     @abstractmethod
-    def _predict(self, left_index_to_right_index_to_probability, top_index_to_bottom_index_to_probability):
+    def _predict(self, left_index_to_right_index_to_probability, top_index_to_bottom_index_to_probability,
+                 return_log_objective=False):
         raise NotImplementedError
