@@ -143,12 +143,10 @@ class GenericSolverWithComparator(ABC):
                            top_index_to_bottom_index_to_probability):
         t = int(round(math.sqrt(len(crop_position_in_original_image))))
 
-        row_to_column_to_crop_index = np.empty((t, t), dtype=int)
-
-        for crop_index, crop_position in enumerate(crop_position_in_original_image):
-            row = crop_position // t
-            column = crop_position % t
-            row_to_column_to_crop_index[row][column] = crop_index
+        row_to_column_to_crop_index = \
+            GenericSolverWithComparator._shred_index_to_original_index_to_row_to_column_to_shred_index(
+                crop_position_in_original_image
+            )
 
         objective = 1.0
         log_objective = 0.0
@@ -187,3 +185,27 @@ class GenericSolverWithComparator(ABC):
     def _predict(self, left_index_to_right_index_to_probability, top_index_to_bottom_index_to_probability,
                  return_log_objective=False):
         raise NotImplementedError
+
+    @staticmethod
+    def _shred_index_to_original_index_to_row_to_column_to_shred_index(crop_position_in_original_image: list):
+        t = int(round(math.sqrt(len(crop_position_in_original_image))))
+
+        row_to_column_to_crop_index = np.empty((t, t), dtype=int)
+
+        for crop_index, crop_position in enumerate(crop_position_in_original_image):
+            row = crop_position // t
+            column = crop_position % t
+            row_to_column_to_crop_index[row][column] = crop_index
+
+        return row_to_column_to_crop_index
+
+    @staticmethod
+    def _row_to_column_to_shred_index_to_shred_index_to_original_index(row_to_column_to_crop_index) -> list:
+        t = row_to_column_to_crop_index.shape[0]
+        crop_position_in_original_image = [None, ] * (t**2)
+
+        for row in range(t):
+            for column in range(t):
+                crop_position_in_original_image[row_to_column_to_crop_index[row][column]] = row * t + column
+
+        return crop_position_in_original_image
