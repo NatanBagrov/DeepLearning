@@ -85,7 +85,7 @@ def load_adjacent_and_non_adjacent_probabilities():
                 plt.clf()
                 print(
                     '{}-{} adj mean: {:.3f} var: {:.3f}, non_adj_mean: {:.3f} var: {:.3f}'
-                        .format(category, t, adj_mean, adj_var, non_adj_mean, non_adj_mean))
+                        .format(category, t, adj_mean, adj_var, non_adj_mean, non_adj_var))
 
 
 def get_adjacent_crops_probabilities(dp: DataProvider, image_type: ImageType, t):

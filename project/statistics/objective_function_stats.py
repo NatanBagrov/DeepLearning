@@ -3,6 +3,7 @@ import pickle
 import sys
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from constants import IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH, IMAGE_TYPE_TO_MEAN, \
     IMAGE_TYPE_TO_STD, TS
@@ -12,9 +13,10 @@ from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 from utils.shredder import Shredder
 
-pickle_path = os.path.dirname(__file__)
-pickle_file_names = {
-    'log_obj': os.path.join(pickle_path, 'greedy_log_obj_probas.pkl')
+root_path = os.path.dirname(__file__)
+dict_file_names = {
+    'log_obj': os.path.join(root_path, 'greedy_log_obj_probas.pkl'),
+    'plots': os.path.join(root_path, 'plots', 'objective')
 }
 image_type_to_solver_with_comparator = dict()
 
@@ -74,17 +76,42 @@ def dump_reconstruction_objective_values():
             d[image_type][t]['correct'], \
             d[image_type][t]['incorrect'] = get_reconstruction_objective_values(dp, image_type, t)
 
-    os.makedirs(pickle_path, exist_ok=True)
-    file_path = os.path.join(pickle_file_names['log_obj'])
+    os.makedirs(root_path, exist_ok=True)
+    file_path = os.path.join(dict_file_names['log_obj'])
     print('Dumping data to ' + str(file_path))
     with open(file_path, 'wb') as f:
         pickle.dump(d, f)
 
 
 def load_reconstruction_objective_values():
-    with open(os.path.join(pickle_file_names['log_obj']), 'rb') as file_handler_to_cache:
+    with open(os.path.join(dict_file_names['log_obj']), 'rb') as file_handler_to_cache:
         d = pickle.load(file_handler_to_cache)
         print("Loaded successfully")
+        for image_type in ImageType:
+            for t in TS:
+                correct_log_obj, incorrect_log_obj = np.array(d[image_type][t]['correct']), \
+                                                     np.array(d[image_type][t]['incorrect'])
+                correct_log_obj = correct_log_obj[~np.isnan(correct_log_obj)]
+                incorrect_log_obj = incorrect_log_obj[~np.isnan(incorrect_log_obj)]
+                correct_mean, incorrect_mean = np.mean(correct_log_obj), np.mean(incorrect_log_obj)
+                correct_var, incorrect_var = np.var(correct_log_obj), np.var(incorrect_log_obj)
+                category = 'Fish' if image_type == ImageType.IMAGES else 'Docs'
+                title = "Log objective: {}, t={}".format(category, t)
+                bins = np.linspace(-100.0, 0.0, 100)
+                plt.hist(correct_log_obj, bins, alpha=0.5, label='correct reconstruction')
+                plt.hist(incorrect_log_obj, bins, alpha=0.5, label='incorrect reconstruction')
+                plt.yscale('log')
+                plt.legend(loc='upper left')
+                plt.xlabel('reconstruction log objective')
+                plt.ylabel('number of samples')
+                plt.title(title)
+                os.makedirs(dict_file_names['plots'], exist_ok=True)
+                plt.savefig(os.path.join(dict_file_names['plots'], '{}-{}-objective.png'.format(category, t)))
+                plt.clf()
+                print(
+                    '{}-{} correct reconstruction mean: {:.3f} var: {:.3f}, '
+                    'incorrect reconstruction: {:.3f} var: {:.3f}'
+                        .format(category, t, correct_mean, correct_var, incorrect_mean, incorrect_var))
 
 
 if __name__ == '__main__':
