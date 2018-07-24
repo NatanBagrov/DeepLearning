@@ -194,7 +194,11 @@ class GenericCNN(ABC):
 
     @staticmethod
     def _mean_of_a_list(images_list):
-        mean = np.mean(np.concatenate(list(map(np.ndarray.flatten, images_list))))
+        mean = \
+            np.sum(list(map(np.sum, images_list))) / \
+            np.sum(list(map(lambda image: np.prod(image.shape), images_list)))
+
+        # _mean = np.mean(np.concatenate(list(map(np.ndarray.flatten, images_list))))
 
         return mean
 
