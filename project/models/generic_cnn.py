@@ -38,7 +38,7 @@ class GenericCNN(ABC):
     def height(self):
         return self._height
 
-    def fit_generator(self, images_train: list, batch_size, epochs, images_validation: list):
+    def fit_generator(self, images_train: list, batch_size, epochs, images_validation: list, initial_epoch=1):
         self._fit_standardisation(images_train)
         images_train = self.standardise(images_train)
         images_validation = self.standardise(images_validation)
@@ -115,10 +115,11 @@ class GenericCNN(ABC):
                                 monitor='val_loss',
                                 save_best_only=True),
                 TensorBoard(log_dir=log_directory_path),
-                UpdateMonitorCallback(False)
+                # UpdateMonitorCallback(False)
 
             ],
-            validation_data=validation_data
+            validation_data=validation_data,
+            initial_epoch=initial_epoch
         )
 
     def predict(self, tensor, standardise=True):

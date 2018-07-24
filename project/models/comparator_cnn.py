@@ -298,6 +298,11 @@ def main():
     else:
         force = False
 
+    if 'resume' in sys.argv:
+        initial_epoch = int(sys.argv[sys.argv.index('resume') + 1])
+    else:
+        initial_epoch = 1
+
     np.random.seed(42)
 
     width = 2200 // 5
@@ -319,11 +324,15 @@ def main():
             clf = ComparatorCNN(t, width, height, image_type)
 
             if force:
+                if 1 < initial_epoch:
+                    clf.load_weights()
+
                 clf.fit_generator(
                     images_train,
                     batch_size,
                     epochs,
                     images_validation,
+                    initial_epoch=initial_epoch
                 )
             else:
                 clf.load_weights()
