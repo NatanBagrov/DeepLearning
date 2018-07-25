@@ -14,8 +14,8 @@ class SolverGreedy(GenericSolverWithComparator):
                  left_index_to_right_index_to_probability,
                  top_index_to_bottom_index_to_probability,
                  return_log_objective=False,
-                 verbose=True):
-        if verbose:
+                 verbose=2):
+        if verbose >= 1:
             print('Preparing everything ')
         start = time.time()
 
@@ -32,7 +32,7 @@ class SolverGreedy(GenericSolverWithComparator):
         row_to_column_to_last_t_pieces_to_used = np.empty([t, t] + [t_square, ] * t, dtype=set)
         arrangements_of_t_from_t_square = list(self.__class__._arrangements(range(t_square), t))
 
-        if verbose:
+        if verbose >= 1:
             print('Initializing DP after', time.time() - start, 'seconds')
 
         for first_t in arrangements_of_t_from_t_square:
@@ -44,7 +44,7 @@ class SolverGreedy(GenericSolverWithComparator):
             row_to_column_to_last_t_pieces_to_log_probability[0, t - 1][first_t] = log_probability
             row_to_column_to_last_t_pieces_to_used[0, t - 1][first_t] = set(first_t)
 
-        if verbose:
+        if verbose >= 1:
             print('Running DP after', time.time() - start, 'seconds')
 
         for row in range(1, t):
@@ -89,7 +89,7 @@ class SolverGreedy(GenericSolverWithComparator):
                                 row_to_column_to_last_t_pieces_to_used[row, column][current_last_t] = \
                                     used_pieces | {current}
 
-        if verbose:
+        if verbose >= 1:
             print('Building solution after', time.time() - start, 'seconds')
 
         row_to_column_to_shred_index = np.empty((t, t), dtype=np.int)
@@ -101,7 +101,7 @@ class SolverGreedy(GenericSolverWithComparator):
 
         log_objective = row_to_column_to_last_t_pieces_to_log_probability[t - 1, t - 1][last_t]
 
-        if verbose:
+        if verbose >= 1:
             print('Log objective is', log_objective)
 
         row_to_column_to_shred_index[t - 1] = last_t
@@ -122,7 +122,7 @@ class SolverGreedy(GenericSolverWithComparator):
 
         assert np.isclose(true_log_objective, log_objective)
 
-        if verbose:
+        if verbose >= 2:
             print('All done after', time.time() - start, 'seconds')
 
         return shred_index_to_original_index
