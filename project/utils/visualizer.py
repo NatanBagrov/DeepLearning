@@ -1,6 +1,5 @@
 import math
-
-import numpy as np
+import os
 import utils.safe_pyplot as plt
 from keras.callbacks import Callback
 
@@ -14,8 +13,8 @@ class Visualizer:
         grid_color = 255
         img = Shredder.reconstruct(crops_list)
         if t > 1:
-            dx = img.shape[0]//t
-            dy = img.shape[1]//t
+            dx = img.shape[0] // t
+            dy = img.shape[1] // t
             img[:, ::dy] = grid_color
             img[::dx, :] = grid_color
         plt.imshow(img, cmap='gray')
@@ -88,3 +87,18 @@ class PlotCallback(Callback):
 
         if self._show:
             plt.show()
+
+
+class HistoryVisualizer:
+    @staticmethod
+    def visualize(train_data, test_data, ylabel, dir_path=None):
+        plt.plot(train_data)
+        plt.plot(test_data)
+        plt.ylabel(ylabel)
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        if dir_path is not None:
+            os.makedirs(dir_path, exist_ok=True)
+            save_path = os.path.join(dir_path, '{}.png'.format(ylabel))
+            plt.savefig(save_path)
+            plt.clf()

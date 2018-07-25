@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from utils.adjacency_and_objective_function_helpers import ObjectiveFunction, AdjacencyMatrixBuilder
 from utils.data_manipulations import resize_to
 from utils.data_provider import DataProvider
 from utils.shredder import Shredder
@@ -22,15 +23,8 @@ class GenericSolverWithComparator(ABC):
         assert t ** 2 == t_square
         assert t in self._t_to_comparator
         comparator = self._t_to_comparator[t]
-        shreds = resize_to(shreds, (comparator.width, comparator.height))
-        left_index_to_right_index_to_probability = \
-            GenericSolverWithComparator._get_first_index_to_second_index_to_probability(
-                shreds,
-                comparator.predict_is_left_probability)
-        top_index_to_bottom_index_to_probability = \
-            GenericSolverWithComparator._get_first_index_to_second_index_to_probability(
-                shreds,
-                comparator.predict_is_top_probability)
+        left_index_to_right_index_to_probability, top_index_to_bottom_index_to_probability = \
+            AdjacencyMatrixBuilder.build_adjacency_matrices(comparator, shreds)
 
         prediction_and_maybe_objective_log = self._predict(
             left_index_to_right_index_to_probability,
@@ -96,90 +90,13 @@ class GenericSolverWithComparator(ABC):
         return current_accuracy
 
     @staticmethod
-    def _get_first_index_to_second_index_to_probability(images, predict_probability):
-        first_index_to_second_index_to_first_image = np.array([
-            [
-                images[first_index]
-                for second_image in range(images.shape[0])
-            ]
-            for first_index in range(images.shape[0])
-        ])
-        first_index_to_second_index_to_second_image = np.array([
-            [
-                images[second_image]
-                for second_image in range(images.shape[0])
-            ]
-            for first_index in range(images.shape[0])
-        ])
-
-        assert (images.shape[0], images.shape[0], images.shape[1], images.shape[2]) \
-               == first_index_to_second_index_to_first_image.shape
-        assert (images.shape[0], images.shape[0], images.shape[1], images.shape[2]) \
-               == first_index_to_second_index_to_second_image.shape
-
-        first_index_to_second_index_to_first_image = np.reshape(first_index_to_second_index_to_first_image,
-                                                                (
-                                                                    images.shape[0] ** 2, images.shape[1],
-                                                                    images.shape[2]))
-        first_index_to_second_index_to_second_image = np.reshape(first_index_to_second_index_to_second_image,
-                                                                 (images.shape[0] ** 2, images.shape[1],
-                                                                  images.shape[2]))
-
-        first_index_to_second_index_to_probability = predict_probability(first_index_to_second_index_to_first_image,
-                                                                         first_index_to_second_index_to_second_image)
-
-        assert (images.shape[0] ** 2, 2) == \
-               first_index_to_second_index_to_probability.shape
-
-        first_index_to_second_index_to_probability = first_index_to_second_index_to_probability[:, 1]
-        first_index_to_second_index_to_probability = np.reshape(first_index_to_second_index_to_probability,
-                                                                (images.shape[0], images.shape[0]))
-
-        return first_index_to_second_index_to_probability
-
-    @staticmethod
     def _compute_objective(crop_position_in_original_image,
                            left_index_to_right_index_to_probability,
                            top_index_to_bottom_index_to_probability):
-        t = int(round(math.sqrt(len(crop_position_in_original_image))))
-
-        row_to_column_to_crop_index = \
-            GenericSolverWithComparator._shred_index_to_original_index_to_row_to_column_to_shred_index(
-                crop_position_in_original_image
-            )
-
-        objective = 1.0
-        log_objective = 0.0
-
-        for row in range(t):
-            for column in range(t):
-                if row + 1 < t:
-                    top_index = row_to_column_to_crop_index[row][column]
-                    bottom_index = row_to_column_to_crop_index[row + 1][column]
-                    objective *= top_index_to_bottom_index_to_probability[top_index][bottom_index]
-
-                    try:
-                        log_objective += math.log(top_index_to_bottom_index_to_probability[top_index][bottom_index])
-                    except ValueError:
-                        # print('Can not calculate log({})'.format(
-                        #     top_index_to_bottom_index_to_probability[top_index][bottom_index])
-                        # )
-                        log_objective = float("-inf")
-
-                if column + 1 < t:
-                    left_index = row_to_column_to_crop_index[row][column]
-                    right_index = row_to_column_to_crop_index[row][column + 1]
-                    objective *= left_index_to_right_index_to_probability[left_index][right_index]
-                    # TODO: bug bug bug, fails when executing log!!!!
-                    try:
-                        log_objective += math.log(left_index_to_right_index_to_probability[left_index][right_index])
-                    except ValueError:
-                        # print('Can not calculate log({})'.format(
-                        #     left_index_to_right_index_to_probability[left_index][right_index])
-                        # )
-                        log_objective = float("-inf")
-
-        return objective, log_objective
+        # TODO: left this for backwards compatibility. Saw you explicitly calling this from DP - didnt want to touch.
+        return ObjectiveFunction.compute(crop_position_in_original_image,
+                                         left_index_to_right_index_to_probability,
+                                         top_index_to_bottom_index_to_probability)
 
     @abstractmethod
     def _predict(self, left_index_to_right_index_to_probability, top_index_to_bottom_index_to_probability,
@@ -202,7 +119,7 @@ class GenericSolverWithComparator(ABC):
     @staticmethod
     def _row_to_column_to_shred_index_to_shred_index_to_original_index(row_to_column_to_crop_index) -> list:
         t = row_to_column_to_crop_index.shape[0]
-        crop_position_in_original_image = [None, ] * (t**2)
+        crop_position_in_original_image = [None, ] * (t ** 2)
 
         for row in range(t):
             for column in range(t):

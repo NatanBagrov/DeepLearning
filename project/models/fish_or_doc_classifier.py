@@ -1,16 +1,20 @@
 import os
+import sys
 
 import keras
 import numpy as np
 from keras import Sequential
-from keras.callbacks import LearningRateScheduler
+from keras.callbacks import LearningRateScheduler, ModelCheckpoint
 from keras.layers import regularizers, BatchNormalization, Flatten, Dense
 from sklearn.model_selection import train_test_split
 
-from utils.data_manipulations import list_of_images_to_numpy, resize_to, \
-    shred_shuffle_and_reconstruct
+from utils.data_manipulations import resize_to, shred_shuffle_and_reconstruct
 from utils.data_provider import DataProvider
 from utils.learning_rate_schedulers import step_decay_scheduler_generator
+from utils.pickle_helper import PickleHelper
+from utils.visualizer import HistoryVisualizer
+
+visualization_root = os.path.join(os.path.dirname(__file__), 'training_visualization', 'fish_or_doc')
 
 
 class FishOrDocClassifier:
@@ -23,10 +27,10 @@ class FishOrDocClassifier:
             'epochs': 100,
             'input_shape': (220, 220),
             'batch_norm': True,
-            'weight_decay': 5e-4,
+            'weight_decay': 5e-3,
             'initial_learning_rate': 0.07,
             'scheduler': step_decay_scheduler_generator(initial_lr=0.07, coef=0.9, epoch_threshold=60),
-            'batch_size': 256,
+            'batch_size': 512,
         }
         self._input_shape = self._param_dict['input_shape']
         self._data_provider = data_provider
@@ -69,7 +73,7 @@ class FishOrDocClassifier:
         self._model = model
         return model
 
-    def fit(self, save_weight_dir):
+    def fit(self, save_weight_dir, epochs=None):
         (x_train, y_train), (x_test, y_test) = self._load_data()
 
         model = self._build_model(do_batch_norm=self._param_dict['batch_norm'],
@@ -77,10 +81,27 @@ class FishOrDocClassifier:
                                   initial_learning_rate=self._param_dict['initial_learning_rate'])
 
         learning_rate_scheduler = LearningRateScheduler(self._param_dict['scheduler'], verbose=0)
+        model_name = 'fish_or_doc.{epoch:02d}-{val_acc:.3f}-{val_loss:.3f}.h5'
+        model_path = os.path.join(save_weight_dir, model_name)
+        checkpoint_callback_loss = ModelCheckpoint(filepath=model_path,
+                                                   monitor='val_loss',
+                                                   verbose=2,
+                                                   save_best_only=True,
+                                                   save_weights_only=False,
+                                                   mode='auto',
+                                                   period=1)
+        checkpoint_callback_acc = ModelCheckpoint(filepath=model_path,
+                                                  monitor='val_acc',
+                                                  verbose=2,
+                                                  save_best_only=True,
+                                                  save_weights_only=False,
+                                                  mode='auto',
+                                                  period=1)
 
         batch_size = self._param_dict['batch_size']
-        callbacks = [learning_rate_scheduler]
-        training_history = self._model.fit(x_train, y_train, epochs=self._param_dict['epochs'],
+        callbacks = [learning_rate_scheduler, checkpoint_callback_loss, checkpoint_callback_acc]
+        training_history = self._model.fit(x_train, y_train,
+                                           epochs=self._param_dict['epochs'] if epochs is None else epochs,
                                            callbacks=callbacks,
                                            validation_data=(x_test, y_test),
                                            batch_size=batch_size)
@@ -89,11 +110,6 @@ class FishOrDocClassifier:
         test_loss, test_accuracy = model.evaluate(x_test, y_test, verbose=0)
         print('Test loss (after training finished):', test_loss)
         print('Test accuracy (after training finished):', test_accuracy)
-        if save_weight_dir is not None:
-            weight_file_name = 'fish_or_doc_clf_weights_acc_{:.3f}.h5'.format(test_accuracy)
-            weights_full_path = os.path.join(save_weight_dir, weight_file_name)
-            print("Weights were saved to: " + weights_full_path)
-            model.save_weights(weights_full_path)
         return model, training_history
 
     def _load_data(self):
@@ -123,8 +139,17 @@ class FishOrDocClassifier:
 
 
 if __name__ == '__main__':
-    # This will fit the classifier
-    clf = FishOrDocClassifier(DataProvider())
     weights = os.path.join(os.path.dirname(__file__), 'saved_weights')
-    os.makedirs(weights, exist_ok=True)
-    clf.fit(weights)
+    epochs = 3 if 'debug' in sys.argv else 300
+    if 'fit' in sys.argv:
+        # This will fit the classifier
+        clf = FishOrDocClassifier(DataProvider())
+        print('Fitting {}'.format(clf.__class__.__name__))
+        os.makedirs(weights, exist_ok=True)
+        model, history = clf.fit(weights, epochs=300)
+        PickleHelper.dump(history.history, os.path.join(visualization_root, 'history.pkl'))
+    if 'visualize' in sys.argv:
+        print('Visualizing history')
+        history = PickleHelper.load(os.path.join(visualization_root, 'history.pkl'))
+        HistoryVisualizer.visualize(history['acc'], history['val_acc'], 'accuracy', visualization_root)
+        HistoryVisualizer.visualize(history['loss'], history['val_loss'], 'loss', visualization_root)

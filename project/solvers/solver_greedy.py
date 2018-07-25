@@ -5,8 +5,10 @@ import itertools
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+from constants import IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH
 from models.comparator_cnn import ComparatorCNN
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
+from utils.adjacency_and_objective_function_helpers import ObjectiveFunction
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 
@@ -84,7 +86,7 @@ class SolverGreedy(GenericSolverWithComparator):
                 try_to_improve_with_row_permutation=try_to_improve_with_row_permutation
             )
 
-            current_objective, current_log_objective = SolverGreedy._compute_objective(
+            current_objective, current_log_objective = ObjectiveFunction.compute(
                 current_shred_index_to_original_index,
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability
@@ -231,7 +233,7 @@ class SolverGreedy(GenericSolverWithComparator):
                         )
 
                     current_objective, current_log_objective = \
-                        SolverGreedy._compute_objective(
+                        ObjectiveFunction.compute(
                             current_crop_position_in_original_image,
                             left_index_to_right_index_to_probability,
                             top_index_to_bottom_index_to_probability)
@@ -263,18 +265,18 @@ class SolverGreedy(GenericSolverWithComparator):
             )
 
         best_shred_index_to_original_index = shred_index_to_original_index
-        best_objective, best_log_objective = GenericSolverWithComparator._compute_objective(
+        best_objective, best_log_objective = ObjectiveFunction.compute(
             shred_index_to_original_index,
             left_index_to_right_index_to_probability,
             top_index_to_bottom_index_to_probability)
 
         for row_permutation in itertools.permutations(range(t)):
             current_row_to_column_to_shred_index = row_to_column_to_shred_index[list(row_permutation)]
-            current_shred_index_to_original_index = GenericSolverWithComparator.\
+            current_shred_index_to_original_index = GenericSolverWithComparator. \
                 _row_to_column_to_shred_index_to_shred_index_to_original_index(
-                    current_row_to_column_to_shred_index
-                )
-            current_objective, current_log_objecitve = GenericSolverWithComparator._compute_objective(
+                current_row_to_column_to_shred_index
+            )
+            current_objective, current_log_objecitve = ObjectiveFunction.compute(
                 current_shred_index_to_original_index,
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability
@@ -343,7 +345,7 @@ def main():
         column_then_row_values = (False, True)
         iterate_first_shred = True
         try_to_improve_with_row_permutation = False
-    else: # if 3 <= version
+    else:  # if 3 <= version
         iterate_on_bottom_values = (False, True)
         iterate_on_right_values = (False, True)
         column_then_row_values = (False, True)
@@ -413,7 +415,7 @@ def debug():
 
     cmp = ComparatorCNN(t, width, height, image_type) \
         ._fit_standardisation(images_train) \
-        .load_weights()
+        .load_weights(IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].model_path)
 
     slv = SolverGreedy({t: cmp})
     score = slv.evaluate_image_for_permutation(images_validation[0], permutation, sample_index=index)

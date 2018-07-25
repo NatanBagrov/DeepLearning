@@ -42,3 +42,16 @@ class Shredder:
         """
         t = round(math.sqrt(len(crops_list)))
         return np.concatenate([np.concatenate(crops_list[t * idx:t * idx + t], axis=1) for idx in range(t)], axis=0)
+
+    @staticmethod
+    def shred_index_to_original_index_to_row_to_column_to_shred_index(crop_position_in_original_image: list):
+        t = int(round(math.sqrt(len(crop_position_in_original_image))))
+
+        row_to_column_to_crop_index = np.empty((t, t), dtype=int)
+
+        for crop_index, crop_position in enumerate(crop_position_in_original_image):
+            row = crop_position // t
+            column = crop_position % t
+            row_to_column_to_crop_index[row][column] = crop_index
+
+        return row_to_column_to_crop_index
