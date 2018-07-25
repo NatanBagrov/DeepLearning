@@ -17,14 +17,14 @@ class SolverGreedy(GenericSolverWithComparator):
                  iterate_on_bottom_values=(False, True),
                  iterate_on_right_values=(False, True),
                  column_then_row_values=(False, True),
-                 possible_first_shred_indices=None,
+                 iterate_first_shred=True,
                  try_to_improve_with_row_permutation=True):
         GenericSolverWithComparator.__init__(self, t_to_comparator, image_type)
 
         self.iterate_on_bottom_values = iterate_on_bottom_values
         self.iterate_on_right_values = iterate_on_right_values
         self.column_then_row_values = column_then_row_values
-        self.possible_first_shred_indices = possible_first_shred_indices
+        self.iterate_first_shred = iterate_first_shred
         self.try_to_improve_with_row_permutation = try_to_improve_with_row_permutation
 
         print(
@@ -32,7 +32,7 @@ class SolverGreedy(GenericSolverWithComparator):
             self.iterate_on_bottom_values,
             self.iterate_on_right_values,
             self.column_then_row_values,
-            self.possible_first_shred_indices,
+            self.iterate_first_shred,
             self.try_to_improve_with_row_permutation
         )
 
@@ -43,7 +43,7 @@ class SolverGreedy(GenericSolverWithComparator):
             iterate_on_bottom: bool,
             iterate_on_right: bool,
             column_then_row: bool,
-            possible_first_shred_indices=None,
+            iterate_first_shred=True,
             try_to_improve_with_row_permutation=True,
     ):
         t_square = left_index_to_right_index_to_probability.shape[0]
@@ -51,10 +51,17 @@ class SolverGreedy(GenericSolverWithComparator):
         best_log_objective = float("-inf")
         best_shred_index_to_original_index = list(range(t_square))
 
-        if possible_first_shred_indices is None:
-            possible_first_shred_indices = list(range(t_square))
-
         assert t ** 2 == t_square
+
+        if iterate_first_shred:
+            possible_first_shreds = tuple(range(t_square))
+        else:
+            possible_first_shreds = (SolverGreedy._find_greedy_best_first_shred(
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability,
+                iterate_on_bottom,
+                iterate_on_right
+            ),)
 
         if column_then_row and iterate_on_right or not column_then_row and iterate_on_bottom:
             first_indices = list(reversed(range(t)))
@@ -66,7 +73,7 @@ class SolverGreedy(GenericSolverWithComparator):
         else:
             second_indices = list(range(t))
 
-        for first_shred_index in possible_first_shred_indices:
+        for first_shred_index in possible_first_shreds:
             current_shred_index_to_original_index = SolverGreedy._continue_predicting_in_generic_order(
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability,
@@ -88,6 +95,36 @@ class SolverGreedy(GenericSolverWithComparator):
                 best_shred_index_to_original_index = current_shred_index_to_original_index
 
         return best_shred_index_to_original_index
+
+    @staticmethod
+    def _find_greedy_best_first_shred(
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability,
+            iterate_on_bottom,
+            iterate_on_right
+    ):
+        t_square = left_index_to_right_index_to_probability.shape[0]
+        min_probability = np.inf
+        best_index = 0
+
+        for first_index in range(t_square):
+            if iterate_on_bottom:
+                vertical_probability = np.max(top_index_to_bottom_index_to_probability[first_index, :])
+            else:
+                vertical_probability = np.max(top_index_to_bottom_index_to_probability[:, first_index])
+
+            if iterate_on_right:
+                horizontal_probability = np.max(left_index_to_right_index_to_probability[first_index, :])
+            else:
+                horizontal_probability = np.max(left_index_to_right_index_to_probability[:, first_index])
+
+            current_probability = max(vertical_probability, horizontal_probability)
+
+            if current_probability < min_probability:
+                min_probability = current_probability
+                best_index = first_index
+
+        return best_index
 
     @staticmethod
     def _continue_predicting_in_generic_order(
@@ -189,7 +226,7 @@ class SolverGreedy(GenericSolverWithComparator):
                             iterate_on_bottom,
                             iterate_on_right,
                             column_then_row,
-                            possible_first_shred_indices=self.possible_first_shred_indices,
+                            iterate_first_shred=self.iterate_first_shred,
                             try_to_improve_with_row_permutation=self.try_to_improve_with_row_permutation,
                         )
 
@@ -292,25 +329,25 @@ def main():
         iterate_on_bottom_values = (False, )
         iterate_on_right_values = (False, )
         column_then_row_values = (False, )
-        possible_first_shred_indices = (0, )
+        iterate_first_shred = False
         try_to_improve_with_row_permutation = False
     elif 1 == version:
         iterate_on_bottom_values = (False, )
         iterate_on_right_values = (False, )
         column_then_row_values = (False, )
-        possible_first_shred_indices = None
+        iterate_first_shred = True
         try_to_improve_with_row_permutation = False
     elif 2 == version:
         iterate_on_bottom_values = (False, True)
         iterate_on_right_values = (False, True)
         column_then_row_values = (False, True)
-        possible_first_shred_indices = None
+        iterate_first_shred = True
         try_to_improve_with_row_permutation = False
     else: # if 3 <= version
         iterate_on_bottom_values = (False, True)
         iterate_on_right_values = (False, True)
         column_then_row_values = (False, True)
-        possible_first_shred_indices = None
+        iterate_first_shred = True
         try_to_improve_with_row_permutation = True
 
     if 0 == len(image_types):
@@ -348,7 +385,7 @@ def main():
                            iterate_on_bottom_values=iterate_on_bottom_values,
                            iterate_on_right_values=iterate_on_right_values,
                            column_then_row_values=column_then_row_values,
-                           possible_first_shred_indices=possible_first_shred_indices,
+                           iterate_first_shred=iterate_first_shred,
                            try_to_improve_with_row_permutation=try_to_improve_with_row_permutation)
 
         print('Train: ', names_train)
