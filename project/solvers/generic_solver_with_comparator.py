@@ -91,48 +91,6 @@ class GenericSolverWithComparator(ABC):
         return current_accuracy
 
     @staticmethod
-    def _get_first_index_to_second_index_to_probability(images, predict_probability):
-        first_index_to_second_index_to_first_image = np.array([
-            [
-                images[first_index]
-                for second_image in range(images.shape[0])
-            ]
-            for first_index in range(images.shape[0])
-        ])
-        first_index_to_second_index_to_second_image = np.array([
-            [
-                images[second_image]
-                for second_image in range(images.shape[0])
-            ]
-            for first_index in range(images.shape[0])
-        ])
-
-        assert (images.shape[0], images.shape[0], images.shape[1], images.shape[2]) \
-               == first_index_to_second_index_to_first_image.shape
-        assert (images.shape[0], images.shape[0], images.shape[1], images.shape[2]) \
-               == first_index_to_second_index_to_second_image.shape
-
-        first_index_to_second_index_to_first_image = np.reshape(first_index_to_second_index_to_first_image,
-                                                                (
-                                                                    images.shape[0] ** 2, images.shape[1],
-                                                                    images.shape[2]))
-        first_index_to_second_index_to_second_image = np.reshape(first_index_to_second_index_to_second_image,
-                                                                 (images.shape[0] ** 2, images.shape[1],
-                                                                  images.shape[2]))
-
-        first_index_to_second_index_to_probability = predict_probability(first_index_to_second_index_to_first_image,
-                                                                         first_index_to_second_index_to_second_image)
-
-        assert (images.shape[0] ** 2, 2) == \
-               first_index_to_second_index_to_probability.shape
-
-        first_index_to_second_index_to_probability = first_index_to_second_index_to_probability[:, 1]
-        first_index_to_second_index_to_probability = np.reshape(first_index_to_second_index_to_probability,
-                                                                (images.shape[0], images.shape[0]))
-
-        return first_index_to_second_index_to_probability
-
-    @staticmethod
     def _compute_objective(crop_position_in_original_image,
                            left_index_to_right_index_to_probability,
                            top_index_to_bottom_index_to_probability):
