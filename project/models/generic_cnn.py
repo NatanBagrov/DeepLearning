@@ -31,6 +31,10 @@ class GenericCNN(ABC):
         self._model = None
 
     @property
+    def t(self):
+        return self._t
+
+    @property
     def width(self):
         return self._width
 

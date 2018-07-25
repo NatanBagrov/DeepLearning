@@ -60,7 +60,7 @@ class ShredderTests(TestCase):
 class FishOrDocClassifierTests(TestCase):
 
     def prepare_data(self, num_samples, resize=None):
-        num_samples = 100
+        num_samples = 2000
         dp = DataProvider()
         ts = (1, 2, 4, 5)
         fish = dp.get_fish_images(num_samples=num_samples, resize=resize)

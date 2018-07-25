@@ -11,6 +11,7 @@ from models.comparator_cnn import ComparatorCNN
 from solvers.solver_greedy import SolverGreedy
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
+from utils.pickle_helper import PickleHelper
 from utils.shredder import Shredder
 
 root_path = os.path.dirname(__file__)
@@ -78,40 +79,36 @@ def dump_reconstruction_objective_values():
 
     os.makedirs(root_path, exist_ok=True)
     file_path = os.path.join(dict_file_names['log_obj'])
-    print('Dumping data to ' + str(file_path))
-    with open(file_path, 'wb') as f:
-        pickle.dump(d, f)
+    PickleHelper.dump(d, file_path)
 
 
 def load_reconstruction_objective_values():
-    with open(os.path.join(dict_file_names['log_obj']), 'rb') as file_handler_to_cache:
-        d = pickle.load(file_handler_to_cache)
-        print("Loaded successfully")
-        for image_type in ImageType:
-            for t in TS:
-                correct_log_obj, incorrect_log_obj = np.array(d[image_type][t]['correct']), \
-                                                     np.array(d[image_type][t]['incorrect'])
-                correct_log_obj = correct_log_obj[~np.isnan(correct_log_obj)]
-                incorrect_log_obj = incorrect_log_obj[~np.isnan(incorrect_log_obj)]
-                correct_mean, incorrect_mean = np.mean(correct_log_obj), np.mean(incorrect_log_obj)
-                correct_var, incorrect_var = np.var(correct_log_obj), np.var(incorrect_log_obj)
-                category = 'Fish' if image_type == ImageType.IMAGES else 'Docs'
-                title = "Log objective: {}, t={}".format(category, t)
-                bins = np.linspace(-100.0, 0.0, 100)
-                plt.hist(correct_log_obj, bins, alpha=0.5, label='correct reconstruction')
-                plt.hist(incorrect_log_obj, bins, alpha=0.5, label='incorrect reconstruction')
-                plt.yscale('log')
-                plt.legend(loc='upper left')
-                plt.xlabel('reconstruction log objective')
-                plt.ylabel('number of samples')
-                plt.title(title)
-                os.makedirs(dict_file_names['plots'], exist_ok=True)
-                plt.savefig(os.path.join(dict_file_names['plots'], '{}-{}-objective.png'.format(category, t)))
-                plt.clf()
-                print(
-                    '{}-{} correct reconstruction mean: {:.3f} var: {:.3f}, '
-                    'incorrect reconstruction: {:.3f} var: {:.3f}'
-                        .format(category, t, correct_mean, correct_var, incorrect_mean, incorrect_var))
+    d = PickleHelper.load(dict_file_names['log_obj'])
+    for image_type in ImageType:
+        for t in TS:
+            correct_log_obj, incorrect_log_obj = np.array(d[image_type][t]['correct']), \
+                                                 np.array(d[image_type][t]['incorrect'])
+            correct_log_obj = correct_log_obj[~np.isnan(correct_log_obj)]
+            incorrect_log_obj = incorrect_log_obj[~np.isnan(incorrect_log_obj)]
+            correct_mean, incorrect_mean = np.mean(correct_log_obj), np.mean(incorrect_log_obj)
+            correct_var, incorrect_var = np.var(correct_log_obj), np.var(incorrect_log_obj)
+            category = 'Fish' if image_type == ImageType.IMAGES else 'Docs'
+            title = "Log objective: {}, t={}".format(category, t)
+            bins = np.linspace(-100.0, 0.0, 100)
+            plt.hist(correct_log_obj, bins, alpha=0.5, label='correct reconstruction')
+            plt.hist(incorrect_log_obj, bins, alpha=0.5, label='incorrect reconstruction')
+            plt.yscale('log')
+            plt.legend(loc='upper left')
+            plt.xlabel('reconstruction log objective')
+            plt.ylabel('number of samples')
+            plt.title(title)
+            os.makedirs(dict_file_names['plots'], exist_ok=True)
+            plt.savefig(os.path.join(dict_file_names['plots'], '{}-{}-objective.png'.format(category, t)))
+            plt.clf()
+            print(
+                '{}-{} correct reconstruction mean: {:.3f} var: {:.3f}, '
+                'incorrect reconstruction: {:.3f} var: {:.3f}'
+                    .format(category, t, correct_mean, correct_var, incorrect_mean, incorrect_var))
 
 
 if __name__ == '__main__':

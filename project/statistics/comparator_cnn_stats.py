@@ -12,6 +12,8 @@ from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 import matplotlib.pyplot as plt
 
+from utils.pickle_helper import PickleHelper
+
 root_path = os.path.dirname(__file__)
 dict_file_names = {
     'adj': os.path.join(root_path, 'adj_non_adj_probas.pkl'),
@@ -55,37 +57,32 @@ def dump_adjacent_and_non_adjacent_probabilities():
             d[image_type][t]['adj'] = get_adjacent_crops_probabilities(dp, image_type, t)
 
     os.makedirs(root_path, exist_ok=True)
-    file_path = os.path.join(root_path, dict_file_names['adj'])
-    print('Dumping data to ' + str(file_path))
-    with open(file_path, 'wb') as f:
-        pickle.dump(d, f)
+    PickleHelper.dump(d, dict_file_names['adj'])
 
 
 def load_adjacent_and_non_adjacent_probabilities():
-    with open(os.path.join(root_path, dict_file_names['adj']), 'rb') as file_handler_to_cache:
-        d = pickle.load(file_handler_to_cache)
-        print("Loaded successfully")
-        for image_type in ImageType:
-            for t in TS:
-                adj_probas, non_adj_probas = d[image_type][t]['adj'], d[image_type][t]['non_adj']
-                adj_mean, non_adj_mean = np.mean(adj_probas), np.mean(non_adj_probas)
-                adj_var, non_adj_var = np.var(adj_probas), np.var(non_adj_probas)
-                category = 'Fish' if image_type == ImageType.IMAGES else 'Docs'
-                title = "Left to Right: {}, t={}".format(category, t)
-                bins = np.linspace(0.00, 1.00, 100)
-                plt.hist(adj_probas, bins, alpha=0.5, label='adjacent')
-                plt.hist(non_adj_probas, bins, alpha=0.5, label='non adjacent')
-                plt.yscale('log')
-                plt.legend(loc='upper left')
-                plt.xlabel('adjacency probability')
-                plt.ylabel('number of samples')
-                plt.title(title)
-                os.makedirs(dict_file_names['plots'], exist_ok=True)
-                plt.savefig(os.path.join(dict_file_names['plots'], '{}-{}-adj-nonadj.png'.format(category, t)))
-                plt.clf()
-                print(
-                    '{}-{} adj mean: {:.3f} var: {:.3f}, non_adj_mean: {:.3f} var: {:.3f}'
-                        .format(category, t, adj_mean, adj_var, non_adj_mean, non_adj_var))
+    d = PickleHelper.load(dict_file_names['adj'])
+    for image_type in ImageType:
+        for t in TS:
+            adj_probas, non_adj_probas = d[image_type][t]['adj'], d[image_type][t]['non_adj']
+            adj_mean, non_adj_mean = np.mean(adj_probas), np.mean(non_adj_probas)
+            adj_var, non_adj_var = np.var(adj_probas), np.var(non_adj_probas)
+            category = 'Fish' if image_type == ImageType.IMAGES else 'Docs'
+            title = "Left to Right: {}, t={}".format(category, t)
+            bins = np.linspace(0.00, 1.00, 100)
+            plt.hist(adj_probas, bins, alpha=0.5, label='adjacent')
+            plt.hist(non_adj_probas, bins, alpha=0.5, label='non adjacent')
+            plt.yscale('log')
+            plt.legend(loc='upper left')
+            plt.xlabel('adjacency probability')
+            plt.ylabel('number of samples')
+            plt.title(title)
+            os.makedirs(dict_file_names['plots'], exist_ok=True)
+            plt.savefig(os.path.join(dict_file_names['plots'], '{}-{}-adj-nonadj.png'.format(category, t)))
+            plt.clf()
+            print(
+                '{}-{} adj mean: {:.3f} var: {:.3f}, non_adj_mean: {:.3f} var: {:.3f}'
+                    .format(category, t, adj_mean, adj_var, non_adj_mean, non_adj_var))
 
 
 def get_adjacent_crops_probabilities(dp: DataProvider, image_type: ImageType, t):
