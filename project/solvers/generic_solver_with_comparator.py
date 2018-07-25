@@ -161,9 +161,9 @@ class GenericSolverWithComparator(ABC):
                     try:
                         log_objective += math.log(top_index_to_bottom_index_to_probability[top_index][bottom_index])
                     except ValueError:
-                        print('Can not calculate log({})'.format(
-                            top_index_to_bottom_index_to_probability[top_index][bottom_index])
-                        )
+                        # print('Can not calculate log({})'.format(
+                        #     top_index_to_bottom_index_to_probability[top_index][bottom_index])
+                        # )
                         log_objective = float("-inf")
 
                 if column + 1 < t:
@@ -174,9 +174,9 @@ class GenericSolverWithComparator(ABC):
                     try:
                         log_objective += math.log(left_index_to_right_index_to_probability[left_index][right_index])
                     except ValueError:
-                        print('Can not calculate log({})'.format(
-                            left_index_to_right_index_to_probability[left_index][right_index])
-                        )
+                        # print('Can not calculate log({})'.format(
+                        #     left_index_to_right_index_to_probability[left_index][right_index])
+                        # )
                         log_objective = float("-inf")
 
         return objective, log_objective
