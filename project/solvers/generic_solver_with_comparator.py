@@ -23,7 +23,6 @@ class GenericSolverWithComparator(ABC):
         assert t ** 2 == t_square
         assert t in self._t_to_comparator
         comparator = self._t_to_comparator[t]
-        shreds = resize_to(shreds, (comparator.width, comparator.height))
         left_index_to_right_index_to_probability, top_index_to_bottom_index_to_probability = \
             AdjacencyMatrixBuilder.build_adjacency_matrices(comparator, shreds)
 
