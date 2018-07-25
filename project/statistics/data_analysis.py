@@ -31,8 +31,9 @@ def get_number_of_images_with_same_patches_and_number_of_same_patches(
         for left_shred in range(t**2):
             picture_has_similar_to_this_shred = False
 
-            for right_shred in range(left_shred + 1, t**2):
-                if np.all(stacked_shreds[left_shred] == stacked_shreds[right_shred]):
+            for right_shred in range(t**2):
+
+                if left_shred != right_shred and np.all(stacked_shreds[left_shred] == stacked_shreds[right_shred]):
                     picture_has_similar_to_this_shred = True
 
             if picture_has_similar_to_this_shred:
@@ -46,7 +47,7 @@ def get_number_of_images_with_same_patches_and_number_of_same_patches(
         number_of_pictures_with_same_patches, \
         number_of_patches_with_similar_in_same_picture, \
         len(inputs), \
-        len(inputs) * t * (t - 1) // 2
+        len(inputs) * (t ** 2)
 
 
 def main():
@@ -107,7 +108,7 @@ def main():
             current_handle, = plt.plot(ts, type_to_bad_patches_pairs_percent[image_type], 'o', label=image_type.value)
             handles.append(current_handle)
 
-        plt.title('Percent of bad pairs of patches as function of t')
+        plt.title('Percent of bad crops as function of t')
         plt.legend(handles)
         plt.xlabel('t')
         plt.ylabel('% of pairs')
