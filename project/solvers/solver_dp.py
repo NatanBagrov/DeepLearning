@@ -29,6 +29,7 @@ class SolverGreedy(GenericSolverWithComparator):
 
         row_to_column_to_last_t_pieces_to_log_probability = np.full([t, t] + [t_square, ] * t, -np.inf)
         row_to_column_to_last_t_pieces_to_previous = np.empty([t, t] + [t_square, ] * t, dtype=np.int)
+        row_to_column_to_last_t_pieces_to_used = np.empty([t, t] + [t_square, ] * t, dtype=set)
         combinations_of_t_from_t_square = list(itertools.combinations(range(t_square), t))
 
         if verbose:
@@ -41,6 +42,7 @@ class SolverGreedy(GenericSolverWithComparator):
                 log_probability += left_index_to_right_index_to_log_probability[first_t[column], first_t[column + 1]]
 
             row_to_column_to_last_t_pieces_to_log_probability[0, t - 1][first_t] = log_probability
+            row_to_column_to_last_t_pieces_to_used[0, t - 1][first_t] = set(first_t)
 
         if verbose:
             print('Running DP after', time.time() - start, 'seconds')
@@ -50,7 +52,9 @@ class SolverGreedy(GenericSolverWithComparator):
                 old_log_probability = row_to_column_to_last_t_pieces_to_log_probability[row - 1, t - 1][previous_last_t]
 
                 if old_log_probability > -np.inf:
-                    for current in set(range(t_square)) - set(previous_last_t):
+                    used_pieces = row_to_column_to_last_t_pieces_to_used[row - 1, t - 1][previous_last_t]
+
+                    for current in set(range(t_square)) - used_pieces:
                         current_last_t = tuple(list(previous_last_t[1:]) + [current])
                         current_log_probability = \
                             old_log_probability + \
@@ -59,6 +63,7 @@ class SolverGreedy(GenericSolverWithComparator):
                         if current_log_probability > row_to_column_to_last_t_pieces_to_log_probability[row, 0][current_last_t]:
                             row_to_column_to_last_t_pieces_to_log_probability[row, 0][current_last_t] = current_log_probability
                             row_to_column_to_last_t_pieces_to_previous[row, 0][current_last_t] = previous_last_t[0]
+                            row_to_column_to_last_t_pieces_to_used[row, 0][current_last_t] = used_pieces | {current}
 
             for column in range(1, t):
                 for previous_last_t in combinations_of_t_from_t_square:
@@ -66,7 +71,9 @@ class SolverGreedy(GenericSolverWithComparator):
                         row_to_column_to_last_t_pieces_to_log_probability[row, column - 1][previous_last_t]
 
                     if old_log_probability > -np.inf:
-                        for current in set(range(t_square)) - set(previous_last_t):
+                        used_pieces = row_to_column_to_last_t_pieces_to_used[row, column - 1][previous_last_t]
+
+                        for current in set(range(t_square)) - used_pieces:
                             current_last_t = tuple(list(previous_last_t[1:]) + [current])
                             current_log_probability = \
                                 old_log_probability + \
@@ -79,6 +86,8 @@ class SolverGreedy(GenericSolverWithComparator):
                                     current_log_probability
                                 row_to_column_to_last_t_pieces_to_previous[row, column][current_last_t] = \
                                     previous_last_t[0]
+                                row_to_column_to_last_t_pieces_to_used[row, column][current_last_t] = \
+                                    used_pieces | {current}
 
         if verbose:
             print('Building solution after', time.time() - start, 'seconds')
@@ -106,12 +115,12 @@ class SolverGreedy(GenericSolverWithComparator):
         shred_index_to_original_index = \
             self.__class__._row_to_column_to_shred_index_to_shred_index_to_original_index(row_to_column_to_shred_index)
 
-        # true_objective, true_log_objective = self.__class__._compute_objective(
-        #     shred_index_to_original_index,
-        #     left_index_to_right_index_to_probability,
-        #     top_index_to_bottom_index_to_probability)
-        #
-        # assert np.isclose(true_log_objective, log_objective)
+        true_objective, true_log_objective = self.__class__._compute_objective(
+            shred_index_to_original_index,
+            left_index_to_right_index_to_probability,
+            top_index_to_bottom_index_to_probability)
+
+        assert np.isclose(true_log_objective, log_objective)
 
         if verbose:
             print('All done after', time.time() - start, 'seconds')
