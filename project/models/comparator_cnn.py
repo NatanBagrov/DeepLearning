@@ -226,9 +226,9 @@ class ComparatorCNN(GenericCNN):
                         same = ComparatorCNN._is_same_patch(image_above, image_beyond)
 
                         if same:
-                            print('Same patch is sampled at ({},{}) and ({},{}). Skipping'.format(
-                                row, col,
-                                second_row, second_col))
+                            # print('Same patch is sampled at ({},{}) and ({},{}). Skipping'.format(
+                            #     row, col,
+                            #     second_row, second_col))
                             continue
 
                         if is_top:
@@ -303,10 +303,15 @@ def main():
     else:
         initial_epoch = 1
 
+    if 'size' in sys.argv:
+        width = int(sys.argv[sys.argv.index('size') + 1])
+        height = int(sys.argv[sys.argv.index('size') + 1])
+    else:
+        width = 2200 // 5
+        height = 2200 // 5
+
     np.random.seed(42)
 
-    width = 2200 // 5
-    height = 2200 // 5
     batch_size = 32
 
     for t in ts:

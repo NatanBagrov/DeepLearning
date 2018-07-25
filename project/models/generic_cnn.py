@@ -1,23 +1,13 @@
-import sys
 import os
 import time
 import copy
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 
 import numpy as np
-from sklearn.model_selection import train_test_split
-from keras import Sequential
-from keras.activations import relu, softmax
-from keras.layers import Conv2D, MaxPooling2D, Activation, BatchNormalization, Input, Dense, Flatten
-from keras.optimizers import Adam
-from keras.losses import binary_crossentropy
-from keras.metrics import binary_accuracy
 from keras.callbacks import ModelCheckpoint, Callback, TensorBoard
 
 from utils.image_type import ImageType
 from utils.visualizer import PlotCallback, Visualizer
-from utils.data_manipulations import shred_and_resize_to
-from utils.data_provider import DataProvider
 
 
 class GenericCNN(ABC):
@@ -86,10 +76,8 @@ class GenericCNN(ABC):
 
         timestamp = str(int(time.time()))
         print('time_stamp=', timestamp)
-        log_directory_path = os.path.join('logs', '{}-{}-{}-{}'.format(
-            self.__class__.__name__,
-            self._t,
-            self._image_type.value,
+        log_directory_path = os.path.join('logs', '{}-{}'.format(
+            self._get_model_name(),
             timestamp
         ))
 
@@ -100,16 +88,16 @@ class GenericCNN(ABC):
             verbose=1,
             callbacks=[
                 PlotCallback(['loss', 'val_loss'],
-                             file_path='graphs/{}_{}_{}_loss.png'.format(
-                                 self.__class__.__name__,
-                                 self._t,
-                                 self._image_type.value),
+                             file_path='graphs/{}-{}_loss.png'.format(
+                                 self._get_model_name(),
+                                 timestamp
+                             ),
                              show=True),
                 PlotCallback(['binary_accuracy', 'val_binary_accuracy'],
-                             file_path='graphs/{}_{}_{}_acc.png'.format(
-                                 self.__class__.__name__,
-                                 self._t,
-                                 self._image_type.value),
+                             file_path='graphs/{}-{}_accuracy.png'.format(
+                                 self._get_model_name(),
+                                 timestamp
+                             ),
                              show=True),
                 ModelCheckpoint(self._get_model_checkpoint_file_path(),
                                 monitor='val_loss',
@@ -226,9 +214,13 @@ class GenericCNN(ABC):
         return self
 
     def _get_model_checkpoint_file_path(self):
-        return 'saved_weights/{}-{}-{}-model.h5'.format(
+        return 'saved_weights/{}-model.h5'.format(self._get_model_name())
+
+    def _get_model_name(self):
+        return '{}-{}-{}-{}x{}'.format(
             self.__class__.__name__,
             self._t,
-            self._image_type.value
+            self._image_type.value,
+            self.width,
+            self.height
         )
-
