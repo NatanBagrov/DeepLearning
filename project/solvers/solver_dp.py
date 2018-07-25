@@ -30,12 +30,12 @@ class SolverGreedy(GenericSolverWithComparator):
         row_to_column_to_last_t_pieces_to_log_probability = np.full([t, t] + [t_square, ] * t, -np.inf)
         row_to_column_to_last_t_pieces_to_previous = np.empty([t, t] + [t_square, ] * t, dtype=np.int)
         row_to_column_to_last_t_pieces_to_used = np.empty([t, t] + [t_square, ] * t, dtype=set)
-        combinations_of_t_from_t_square = list(itertools.combinations(range(t_square), t))
+        arrangements_of_t_from_t_square = list(self.__class__._arrangements(range(t_square), t))
 
         if verbose:
             print('Initializing DP after', time.time() - start, 'seconds')
 
-        for first_t in combinations_of_t_from_t_square:
+        for first_t in arrangements_of_t_from_t_square:
             log_probability = 0.0
 
             for column in range(t - 1):
@@ -48,7 +48,7 @@ class SolverGreedy(GenericSolverWithComparator):
             print('Running DP after', time.time() - start, 'seconds')
 
         for row in range(1, t):
-            for previous_last_t in itertools.combinations(range(t_square), t):
+            for previous_last_t in self.__class__._arrangements(range(t_square), t):
                 old_log_probability = row_to_column_to_last_t_pieces_to_log_probability[row - 1, t - 1][previous_last_t]
 
                 if old_log_probability > -np.inf:
@@ -66,7 +66,7 @@ class SolverGreedy(GenericSolverWithComparator):
                             row_to_column_to_last_t_pieces_to_used[row, 0][current_last_t] = used_pieces | {current}
 
             for column in range(1, t):
-                for previous_last_t in combinations_of_t_from_t_square:
+                for previous_last_t in arrangements_of_t_from_t_square:
                     old_log_probability = \
                         row_to_column_to_last_t_pieces_to_log_probability[row, column - 1][previous_last_t]
 
@@ -126,6 +126,12 @@ class SolverGreedy(GenericSolverWithComparator):
             print('All done after', time.time() - start, 'seconds')
 
         return shred_index_to_original_index
+
+    @staticmethod
+    def _arrangements(iterable, r):
+        for combination in itertools.combinations(iterable, r):
+            for arrangement in itertools.permutations(combination):
+                yield arrangement
 
 
 def main():
