@@ -12,8 +12,29 @@ from utils.image_type import ImageType
 
 
 class SolverGreedy(GenericSolverWithComparator):
-    def __init__(self, t_to_comparator, image_type=None):
+    def __init__(self, t_to_comparator,
+                 image_type=None,
+                 iterate_on_bottom_values=(False, True),
+                 iterate_on_right_values=(False, True),
+                 column_then_row_values=(False, True),
+                 possible_first_shred_indices=None,
+                 try_to_improve_with_row_permutation=True):
         GenericSolverWithComparator.__init__(self, t_to_comparator, image_type)
+
+        self.iterate_on_bottom_values = iterate_on_bottom_values
+        self.iterate_on_right_values = iterate_on_right_values
+        self.column_then_row_values = column_then_row_values
+        self.possible_first_shred_indices = possible_first_shred_indices
+        self.try_to_improve_with_row_permutation = try_to_improve_with_row_permutation
+
+        print(
+            'Solver Configuration:',
+            self.iterate_on_bottom_values,
+            self.iterate_on_right_values,
+            self.column_then_row_values,
+            self.possible_first_shred_indices,
+            self.try_to_improve_with_row_permutation
+        )
 
     @staticmethod
     def _predict_greedy_iterating_on_generic_in_generic_order(
@@ -22,11 +43,16 @@ class SolverGreedy(GenericSolverWithComparator):
             iterate_on_bottom: bool,
             iterate_on_right: bool,
             column_then_row: bool,
+            possible_first_shred_indices=None,
+            try_to_improve_with_row_permutation=True,
     ):
         t_square = left_index_to_right_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
         best_log_objective = float("-inf")
         best_shred_index_to_original_index = list(range(t_square))
+
+        if possible_first_shred_indices is None:
+            possible_first_shred_indices = list(range(t_square))
 
         assert t ** 2 == t_square
 
@@ -40,14 +66,15 @@ class SolverGreedy(GenericSolverWithComparator):
         else:
             second_indices = list(range(t))
 
-        for first_shred_index in range(t_square):
+        for first_shred_index in possible_first_shred_indices:
             current_shred_index_to_original_index = SolverGreedy._continue_predicting_in_generic_order(
                 left_index_to_right_index_to_probability,
                 top_index_to_bottom_index_to_probability,
                 column_then_row,
                 first_shred_index,
                 first_indices,
-                second_indices
+                second_indices,
+                try_to_improve_with_row_permutation=try_to_improve_with_row_permutation
             )
 
             current_objective, current_log_objective = SolverGreedy._compute_objective(
@@ -70,6 +97,7 @@ class SolverGreedy(GenericSolverWithComparator):
             first_shred_index,
             first_indices,
             second_indices,
+            try_to_improve_with_row_permutation=True
     ):
         t_square = left_index_to_right_index_to_probability.shape[0]
         t = int(round(math.sqrt(t_square)))
@@ -134,11 +162,12 @@ class SolverGreedy(GenericSolverWithComparator):
                     row_to_column_to_shred_index[row][column] = best_shred_index
                     current_shred_index_to_original_index[best_shred_index] = row * t + column
 
-        current_shred_index_to_original_index = SolverGreedy._try_to_improve_with_row_permutation(
-            current_shred_index_to_original_index,
-            left_index_to_right_index_to_probability,
-            top_index_to_bottom_index_to_probability,
-        )
+        if try_to_improve_with_row_permutation:
+            current_shred_index_to_original_index = SolverGreedy._try_to_improve_with_row_permutation(
+                current_shred_index_to_original_index,
+                left_index_to_right_index_to_probability,
+                top_index_to_bottom_index_to_probability,
+            )
 
         return current_shred_index_to_original_index
 
@@ -150,16 +179,18 @@ class SolverGreedy(GenericSolverWithComparator):
         best_crop_position_in_original_image = None
         best_configuration = None
 
-        for iterate_on_bottom in (False, True):
-            for iterate_on_right in (False, True):
-                for column_then_row in (False, True):
+        for iterate_on_bottom in self.iterate_on_bottom_values:
+            for iterate_on_right in self.iterate_on_right_values:
+                for column_then_row in self.column_then_row_values:
                     current_crop_position_in_original_image = \
                         SolverGreedy._predict_greedy_iterating_on_generic_in_generic_order(
                             left_index_to_right_index_to_probability,
                             top_index_to_bottom_index_to_probability,
                             iterate_on_bottom,
                             iterate_on_right,
-                            column_then_row
+                            column_then_row,
+                            possible_first_shred_indices=self.possible_first_shred_indices,
+                            try_to_improve_with_row_permutation=self.try_to_improve_with_row_permutation,
                         )
 
                     current_objective, current_log_objective = \
@@ -178,8 +209,10 @@ class SolverGreedy(GenericSolverWithComparator):
             'right' if best_configuration[1] else 'left',
             'column' if best_configuration[2] else 'row',
         ))
+
         if return_log_objective:
             return best_crop_position_in_original_image, best_log_objective
+
         return best_crop_position_in_original_image
 
     @staticmethod
@@ -250,6 +283,36 @@ def main():
     if 'document' in sys.argv:
         image_types.append(ImageType.DOCUMENTS)
 
+    if 'version' in sys.argv:
+        version = int(sys.argv[sys.argv.index('version') + 1])
+    else:
+        version = 2
+
+    if 0 == version:
+        iterate_on_bottom_values = (False, )
+        iterate_on_right_values = (False, )
+        column_then_row_values = (False, )
+        possible_first_shred_indices = (0, )
+        try_to_improve_with_row_permutation = False
+    elif 1 == version:
+        iterate_on_bottom_values = (False, )
+        iterate_on_right_values = (False, )
+        column_then_row_values = (False, )
+        possible_first_shred_indices = None
+        try_to_improve_with_row_permutation = False
+    elif 2 == version:
+        iterate_on_bottom_values = (False, True)
+        iterate_on_right_values = (False, True)
+        column_then_row_values = (False, True)
+        possible_first_shred_indices = None
+        try_to_improve_with_row_permutation = False
+    else: # if 3 <= version
+        iterate_on_bottom_values = (False, True)
+        iterate_on_right_values = (False, True)
+        column_then_row_values = (False, True)
+        possible_first_shred_indices = None
+        try_to_improve_with_row_permutation = True
+
     if 0 == len(image_types):
         image_types = ImageType
 
@@ -280,7 +343,14 @@ def main():
             for t in ts
         }
 
-        clf = SolverGreedy(t_to_comparator, image_type=image_type)
+        clf = SolverGreedy(t_to_comparator,
+                           image_type=image_type,
+                           iterate_on_bottom_values=iterate_on_bottom_values,
+                           iterate_on_right_values=iterate_on_right_values,
+                           column_then_row_values=column_then_row_values,
+                           possible_first_shred_indices=possible_first_shred_indices,
+                           try_to_improve_with_row_permutation=try_to_improve_with_row_permutation)
+
         print('Train: ', names_train)
         accuracy = clf.evaluate(images_train, epochs=epochs, ts=ts)
         print('Train 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
