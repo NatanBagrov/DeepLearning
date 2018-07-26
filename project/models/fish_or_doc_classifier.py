@@ -27,10 +27,10 @@ class FishOrDocClassifier:
             'epochs': 100,
             'input_shape': (220, 220),
             'batch_norm': True,
-            'weight_decay': 5e-3,
+            'weight_decay': 5e-4,
             'initial_learning_rate': 0.07,
             'scheduler': step_decay_scheduler_generator(initial_lr=0.07, coef=0.9, epoch_threshold=60),
-            'batch_size': 512,
+            'batch_size': 256,
         }
         self._input_shape = self._param_dict['input_shape']
         self._data_provider = data_provider
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         clf = FishOrDocClassifier(DataProvider())
         print('Fitting {}'.format(clf.__class__.__name__))
         os.makedirs(weights, exist_ok=True)
-        model, history = clf.fit(weights, epochs=300)
+        model, history = clf.fit(weights, epochs=epochs)
         PickleHelper.dump(history.history, os.path.join(visualization_root, 'history.pkl'))
     if 'visualize' in sys.argv:
         print('Visualizing history')
