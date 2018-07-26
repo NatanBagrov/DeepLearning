@@ -333,32 +333,37 @@ def main():
         column_then_row_values = (False, )
         iterate_first_shred = False
         try_to_improve_with_row_permutation = False
+        width = 224
+        height = 224
     elif 1 == version:
         iterate_on_bottom_values = (False, )
         iterate_on_right_values = (False, )
         column_then_row_values = (False, )
         iterate_first_shred = True
         try_to_improve_with_row_permutation = False
+        width = 224
+        height = 224
     elif 2 == version:
         iterate_on_bottom_values = (False, True)
         iterate_on_right_values = (False, True)
         column_then_row_values = (False, True)
         iterate_first_shred = True
         try_to_improve_with_row_permutation = False
+        width = 224
+        height = 224
     else:  # if 3 <= version
         iterate_on_bottom_values = (False, True)
         iterate_on_right_values = (False, True)
         column_then_row_values = (False, True)
         iterate_first_shred = True
         try_to_improve_with_row_permutation = True
+        width = 2200 // 5
+        height = 2200 // 5
 
     if 0 == len(image_types):
         image_types = ImageType
 
     np.random.seed(42)
-
-    width = 2200 // 5
-    height = 2200 // 5
 
     for image_type in image_types:
         print(image_type.value)
