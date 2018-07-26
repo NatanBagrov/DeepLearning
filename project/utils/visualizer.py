@@ -96,7 +96,7 @@ class HistoryVisualizer:
         plt.plot(test_data)
         plt.ylabel(ylabel)
         plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
+        plt.legend(['train', 'test'], loc='best')
         if dir_path is not None:
             os.makedirs(dir_path, exist_ok=True)
             save_path = os.path.join(dir_path, '{}.png'.format(ylabel))
