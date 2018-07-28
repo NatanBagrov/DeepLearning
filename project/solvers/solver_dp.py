@@ -6,7 +6,7 @@ import numpy as np
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
 
 
-class SolverGreedy(GenericSolverWithComparator):
+class SolverDP(GenericSolverWithComparator):
     def __init__(self, t_to_comparator, image_type=None):
         GenericSolverWithComparator.__init__(self, t_to_comparator, image_type)
 
