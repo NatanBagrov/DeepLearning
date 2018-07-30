@@ -41,6 +41,13 @@ class Shredder:
         :return: np array - the reconstructed image
         """
         t = round(math.sqrt(len(crops_list)))
+        shape = crops_list[0].shape
+        if not all(crop.shape == shape for crop in crops_list):
+            # For safety. After shuffling we might try to concat different height crops to a row
+            # or different width crops to a column. thus, we resize all crops to the same shape (up to t pixels per dim)
+            # this should not affect much since this reconstruction is used as input to the FishOrDoc classifier only.
+            print('received crops of different size, will resize')
+            crops_list = [cv2.resize(v, (shape[1], shape[0])) for v in crops_list]
         return np.concatenate([np.concatenate(crops_list[t * idx:t * idx + t], axis=1) for idx in range(t)], axis=0)
 
     @staticmethod
