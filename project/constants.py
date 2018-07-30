@@ -25,19 +25,19 @@ IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH = InitializationProperties(
 IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH = {
     ImageType.IMAGES: {
         2: InitializationProperties(
-            '1BMYopQX2_rh1aC1zn51ALeQGxGMrOkPH',
+            '1TEn9UQW5oX-fgiqKYmS3uF97tRsjMo7G',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-2-images-model.h5'),
             224,
             224
         ),
         4: InitializationProperties(
-            '1eL2G5etJwcoWnVjFXA7iBwppN-GCjaxv',
+            '1Rxy_Gpy6GFsbjCcFHAjPBVj_ETG8a_JH',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-images-model.h5'),
             224,
             224
         ),
         5: InitializationProperties(
-            '1rSbbUHQZFfahKfiZsHnMicOoq4uzED9S',
+            '1NW21gwCBFOkUQkMfkQRuXfPOuNGEAlzW',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-images-model.h5'),
             224,
             224
@@ -45,19 +45,19 @@ IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH = {
     },
     ImageType.DOCUMENTS: {
         2: InitializationProperties(
-            '1SKm30kaAPMcCG095fSSfzgLr0XI5r4Ti',
+            '13QDnR5texwWuyp9momiaAM95J1FReNpg',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-2-documents-model.h5'),
             224,
             224
         ),
         4: InitializationProperties(
-            '1ia3P_a3oCmfqQTOHwYzlfjQVllqXZaTk',
+            '1B1FZE-hI3WWV976MLHxM68eJqLQTGi2D',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-4-documents-model.h5'),
             224,
             224
         ),
         5: InitializationProperties(
-            '1NsUr6QCmjtc7XnZfTfFm-J7saNDNPFj-',
+            '1eUd1nLXoB1hsTvvcT_CH-C9CUeWybYSv',
             os.path.join(WEIGHTS_DIRECTORY_PATH, 'ComparatorCNN-5-documents-model.h5'),
             440,
             440

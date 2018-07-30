@@ -12,6 +12,7 @@ class PickleHelper:
         print('Dumping data to ' + str(file_path))
         with open(file_path, 'wb') as f:
             pickle.dump(data, f)
+        print('Dumped')
 
     @staticmethod
     def load(file_path):

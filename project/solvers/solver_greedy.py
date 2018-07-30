@@ -298,7 +298,7 @@ def main():
     else:
         print('Release')
         number_of_samples = sys.maxsize
-        epochs = 5
+        epochs = 1
 
     ts = list()
 

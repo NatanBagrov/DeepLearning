@@ -3,15 +3,15 @@ import cv2
 import math
 
 from constants import *
+from solvers.solver_greedy import SolverGreedy
 from utils.shredder import Shredder
 from utils.image_type import ImageType
 from models.fish_or_doc_classifier import FishOrDocClassifier
 from models.comparator_cnn import ComparatorCNN
-from models.solver_with_comparator import SolverWithComparator
 
 fish_or_doc_classifier = FishOrDocClassifier(weights_file=IMAGE_OR_DOCUMENT_WEIGHT_FILE_ID_AND_FILE_PATH.model_path)
 image_type_to_solver_with_comparator = {
-    image_type: SolverWithComparator({
+    image_type: SolverGreedy({
         t: ComparatorCNN(t,
                          IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].width,
                          IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].height,

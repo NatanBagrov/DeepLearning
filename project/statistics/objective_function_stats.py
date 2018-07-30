@@ -3,12 +3,13 @@ import pickle
 import sys
 
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot
 
 from constants import IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH, IMAGE_TYPE_TO_MEAN, \
     IMAGE_TYPE_TO_STD, TS
 from models.comparator_cnn import ComparatorCNN
 from solvers.solver_greedy import SolverGreedy
+from utils.adjacency_and_objective_function_helpers import ObjectiveFunction, AdjacencyMatrixBuilder
 from utils.data_provider import DataProvider
 from utils.image_type import ImageType
 from utils.pickle_helper import PickleHelper
@@ -45,16 +46,20 @@ def get_reconstruction_objective_values(dp: DataProvider, image_type: ImageType,
     :return: a tuple of 2 lists of log probabilities (scalars)
     """
     solver = image_type_to_solver_with_comparator[image_type]
+    comparator = solver._t_to_comparator[t]
     inputs = dp.get_fish_images() if image_type == ImageType.IMAGES else dp.get_docs_images()
     inputs = [Shredder.shred(im, t, shuffle_shreds=False) for im in inputs]
     correct_reconstruction_probas = []
     incorrect_reconstruction_probas = []
-    for stacked_shreds in inputs:
+    for i, stacked_shreds in enumerate(inputs):
+        print('#{}-{}-{}'.format(i, image_type, t))
+        ltr_adj_probas, ttb_adj_probas = AdjacencyMatrixBuilder.build_adjacency_matrices(comparator, stacked_shreds)
+        _, correct_log_objective = ObjectiveFunction.compute(np.arange(t ** 2), ltr_adj_probas, ttb_adj_probas)
         predicted_permutation, log_objective = solver.predict(stacked_shreds, return_log_objective=True)
         if np.array_equal(predicted_permutation, np.arange(t ** 2)):
             correct_reconstruction_probas.append(log_objective)
         else:
-            incorrect_reconstruction_probas.append(log_objective)
+            incorrect_reconstruction_probas.append((log_objective, correct_log_objective))
 
     return correct_reconstruction_probas, incorrect_reconstruction_probas
 
@@ -86,29 +91,50 @@ def load_reconstruction_objective_values():
     d = PickleHelper.load(dict_file_names['log_obj'])
     for image_type in ImageType:
         for t in TS:
-            correct_log_obj, incorrect_log_obj = np.array(d[image_type][t]['correct']), \
-                                                 np.array(d[image_type][t]['incorrect'])
-            correct_log_obj = correct_log_obj[~np.isnan(correct_log_obj)]
-            incorrect_log_obj = incorrect_log_obj[~np.isnan(incorrect_log_obj)]
-            correct_mean, incorrect_mean = np.mean(correct_log_obj), np.mean(incorrect_log_obj)
-            correct_var, incorrect_var = np.var(correct_log_obj), np.var(incorrect_log_obj)
+            correct_pred_log_obj = np.array(d[image_type][t]['correct'])
+            incorrect_pred_log_obj = np.array([p[0] for p in d[image_type][t]['incorrect']])
+            correct_true_log_obj = np.array([p[1] for p in d[image_type][t]['incorrect']])
+
+            correct_pred_log_obj = correct_pred_log_obj[~np.isnan(correct_pred_log_obj)]
+            incorrect_pred_log_obj = incorrect_pred_log_obj[~np.isnan(incorrect_pred_log_obj)]
+            correct_true_log_obj = correct_true_log_obj[~np.isnan(correct_true_log_obj)]
+
+            correct_mean, incorrect_mean = np.mean(correct_pred_log_obj), np.mean(incorrect_pred_log_obj)
+            correct_var, incorrect_var = np.var(correct_pred_log_obj), np.var(incorrect_pred_log_obj)
             category = 'Fish' if image_type == ImageType.IMAGES else 'Docs'
             title = "Log objective: {}, t={}".format(category, t)
             bins = np.linspace(-100.0, 0.0, 100)
-            plt.hist(correct_log_obj, bins, alpha=0.5, label='correct reconstruction')
-            plt.hist(incorrect_log_obj, bins, alpha=0.5, label='incorrect reconstruction')
-            plt.yscale('log')
-            plt.legend(loc='upper left')
-            plt.xlabel('reconstruction log objective')
-            plt.ylabel('number of samples')
-            plt.title(title)
+            pyplot.hist(correct_pred_log_obj, bins, alpha=0.5, label='correct reconstruction')
+            pyplot.hist(incorrect_pred_log_obj, bins, alpha=0.5, label='incorrect reconstruction')
+            pyplot.yscale('log')
+            pyplot.legend(loc='upper left')
+            pyplot.xlabel('reconstruction log objective')
+            pyplot.ylabel('number of samples')
+            pyplot.title(title)
             os.makedirs(dict_file_names['plots'], exist_ok=True)
-            plt.savefig(os.path.join(dict_file_names['plots'], '{}-{}-objective.png'.format(category, t)))
-            plt.clf()
+            pyplot.savefig(os.path.join(dict_file_names['plots'], '{}-{}-objective.png'.format(category, t)))
+            pyplot.clf()
             print(
                 '{}-{} correct reconstruction mean: {:.3f} var: {:.3f}, '
                 'incorrect reconstruction: {:.3f} var: {:.3f}'
                     .format(category, t, correct_mean, correct_var, incorrect_mean, incorrect_var))
+
+            if len(incorrect_pred_log_obj) > 0:
+                assert len(correct_true_log_obj) == len(incorrect_pred_log_obj)
+                pyplot.plot(correct_true_log_obj, incorrect_pred_log_obj, 'o')
+                pyplot.xlabel("log-objective value for CORRECT reconstruction")
+                pyplot.ylabel("log-objective value for INCORRECT prediction")
+                minimal_value = min(np.min(correct_true_log_obj), np.min(incorrect_pred_log_obj))
+                maximal_value = max(np.max(correct_true_log_obj), np.max(incorrect_pred_log_obj))
+                x = np.arange(minimal_value, maximal_value)
+                pyplot.plot(x, x, 'r', zorder=0)
+                pyplot.xlim(minimal_value, maximal_value)
+                pyplot.ylim(minimal_value, maximal_value)
+                pyplot.gca().set_aspect('equal', adjustable='box')
+                pyplot.title(title)
+                pyplot.savefig(os.path.join(dict_file_names['plots'],
+                                            '{}-{}-correct-vs-incorrect-objective.png'.format(category, t)))
+                pyplot.clf()
 
 
 if __name__ == '__main__':

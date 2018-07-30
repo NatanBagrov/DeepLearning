@@ -3,6 +3,7 @@ import itertools
 import time
 import numpy as np
 
+from constants import IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
 
 
@@ -60,8 +61,10 @@ class SolverDP(GenericSolverWithComparator):
                             old_log_probability + \
                             top_index_to_bottom_index_to_log_probability[previous_last_t[0]][current]
 
-                        if current_log_probability > row_to_column_to_last_t_pieces_to_log_probability[row, 0][current_last_t]:
-                            row_to_column_to_last_t_pieces_to_log_probability[row, 0][current_last_t] = current_log_probability
+                        if current_log_probability > row_to_column_to_last_t_pieces_to_log_probability[row, 0][
+                            current_last_t]:
+                            row_to_column_to_last_t_pieces_to_log_probability[row, 0][
+                                current_last_t] = current_log_probability
                             row_to_column_to_last_t_pieces_to_previous[row, 0][current_last_t] = previous_last_t[0]
                             row_to_column_to_last_t_pieces_to_used[row, 0][current_last_t] = used_pieces | {current}
 
@@ -143,7 +146,7 @@ def main():
 
     if 'debug' in sys.argv:
         print('Debug')
-        number_of_samples = 20
+        number_of_samples = 2
         epochs = 1
     else:
         print('Release')
@@ -177,11 +180,6 @@ def main():
 
     np.random.seed(42)
 
-    width = 2200 // 5
-    height = 2200 // 5
-    # width = 224
-    # height = 224
-
     for image_type in image_types:
         print(image_type.value)
 
@@ -199,12 +197,15 @@ def main():
         images_train, images_validation, names_train, names_validation = train_test_split(images, names,
                                                                                           random_state=42)
         t_to_comparator = {
-            t: ComparatorCNN(t, width, height, image_type, mean=mean, std=std)
-                .load_weights()
+            t: ComparatorCNN(t,
+                             IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].width,
+                             IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].height,
+                             image_type, mean=mean, std=std)
+                .load_weights(IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].model_path)
             for t in ts
         }
 
-        clf = SolverGreedy(t_to_comparator, image_type=image_type)
+        clf = SolverDP(t_to_comparator, image_type=image_type)
         print('Train: ', names_train)
         accuracy = clf.evaluate(images_train, epochs=epochs, ts=ts)
         print('Train 0-1 accuracy on {}: {}'.format(image_type.value, accuracy))
@@ -214,6 +215,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # debug()
     main()
-

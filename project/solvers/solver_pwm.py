@@ -30,19 +30,24 @@ class SolverPairwiseMerge(GenericSolverWithComparator):
         try:
             rows_list = \
                 self._merge_crops_given_probability_matrix(t, t, np.copy(left_index_to_right_index_to_probability))
+            reformatted_input = \
+                GenericSolverWithComparator._row_to_column_to_shred_index_to_shred_index_to_original_index(
+                    np.array(rows_list))
+            permutation = SolverGreedy._try_to_improve_with_row_permutation(reformatted_input,
+                                                                            left_index_to_right_index_to_probability,
+                                                                            top_index_to_bottom_index_to_probability)
+            print('SolverPairwiseMerge succeeded')
+            return permutation
         except NotImplementedError:
             print("SolverPairwiseMerge failed to construct rows, will use backup solver")
             return self._t_to_backup_solver[t]._predict(left_index_to_right_index_to_probability,
                                                         top_index_to_bottom_index_to_probability,
                                                         return_log_objective)
-        reformatted_input = \
-            GenericSolverWithComparator._row_to_column_to_shred_index_to_shred_index_to_original_index(
-                np.array(rows_list))
-        permutation = SolverGreedy._try_to_improve_with_row_permutation(reformatted_input,
-                                                                        left_index_to_right_index_to_probability,
-                                                                        top_index_to_bottom_index_to_probability)
-        print('SolverPairwiseMerge succeeded')
-        return permutation
+        except Exception:
+            print("Something wrong with the implementation. check it.")
+            return self._t_to_backup_solver[t]._predict(left_index_to_right_index_to_probability,
+                                                        top_index_to_bottom_index_to_probability,
+                                                        return_log_objective)
 
     def _merge_crops_given_probability_matrix(self, merged_groups_number, max_elements_per_group, probability_matrix):
         merged_lists = [[] for _ in range(merged_groups_number)]

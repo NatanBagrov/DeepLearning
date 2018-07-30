@@ -44,11 +44,14 @@ class GenericCNN(ABC):
                                                                                   self.width, self.height, self._t,
                                                                                   batch_size)
         validation_data = next(validation_generator)
-        print('Part of true in validation dataset is ', np.mean(validation_data[1][1]), ' of ', validation_data[1].shape[0])
+        print('Part of true in validation dataset is ', np.mean(validation_data[1][1]), ' of ',
+              validation_data[1].shape[0])
         steps_per_epoch = 2 * len(images_train) * (self._t ** 2) / batch_size
         print('Train mean is {} std is {} number is {}. Validation mean is {} std is {} number is {}'.format(
-            self.__class__._mean_of_a_list(images_train), self.__class__._std_of_a_list(images_train), len(images_train),
-            self.__class__._mean_of_a_list(images_validation), self.__class__._std_of_a_list(images_validation), len(images_validation),))
+            self.__class__._mean_of_a_list(images_train), self.__class__._std_of_a_list(images_train),
+            len(images_train),
+            self.__class__._mean_of_a_list(images_validation), self.__class__._std_of_a_list(images_validation),
+            len(images_validation), ))
 
         class UpdateMonitorCallback(Callback):
             def __init__(self, should_monitor_updates):
@@ -63,9 +66,11 @@ class GenericCNN(ABC):
             def on_batch_end(self, batch, logs=None):
                 if self._should_monitor_updates:
                     weights_after_batch = self._get_weights()
-                    update = list(map(lambda weights: np.linalg.norm(weights[1] - weights[0]) / np.linalg.norm(weights[0]),
-                                      zip(self._weights_before_batch, weights_after_batch)))
-                    print('Update magnitudes mean is {}, they (should be ~1e-3) are: {}'.format(np.mean(update), update))
+                    update = list(
+                        map(lambda weights: np.linalg.norm(weights[1] - weights[0]) / np.linalg.norm(weights[0]),
+                            zip(self._weights_before_batch, weights_after_batch)))
+                    print(
+                        'Update magnitudes mean is {}, they (should be ~1e-3) are: {}'.format(np.mean(update), update))
 
             def _get_weights(self):
                 weights = list()
@@ -152,6 +157,8 @@ class GenericCNN(ABC):
         return np.mean(y_true == y_predicted)
 
     def load_weights(self, file_path=None):
+        print('loading weights for: {}-{}-{}-{}x{}'
+              .format(__class__.__name__, self._image_type, self._t, self._width, self._height))
         if file_path is None:
             file_path = self._get_model_checkpoint_file_path()
 
