@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, lpDot, LpStatusOptimal, LpStatus
 
+from constants import IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH
 from solvers.generic_solver_with_comparator import GenericSolverWithComparator
 from models.comparator_cnn import ComparatorCNN
 from utils.image_type import ImageType
@@ -64,9 +65,9 @@ class SolverLP(GenericSolverWithComparator):
 
         # Each element has single position
         for index in range(t_square):
-                problem += 1 == lpSum(index_to_row_to_column[index][row][column]
-                                      for row in range(t)
-                                      for column in range(t))
+            problem += 1 == lpSum(index_to_row_to_column[index][row][column]
+                                  for row in range(t)
+                                  for column in range(t))
 
         # Each position has single stander
         for row in range(t):
@@ -125,7 +126,7 @@ class SolverLP(GenericSolverWithComparator):
         first_index_to_second_index_to_row_to_column = LpVariable.matrix(
             name,
             (list(range(t_square)), list(range(t_square)),
-             list(range(t - row_increment)),  list(range(t - column_increment))),
+             list(range(t - row_increment)), list(range(t - column_increment))),
             lowBound=0,
             upBound=1,
             cat=LpInteger
@@ -143,8 +144,8 @@ class SolverLP(GenericSolverWithComparator):
                             index_to_row_to_column[second_index][row + row_increment][column + column_increment]
 
                 problem += first_to_second_to_is[first_index][second_index] == \
-                    lpSum(SolverLP._flatten(
-                        first_index_to_second_index_to_row_to_column[first_index][second_index]))
+                           lpSum(SolverLP._flatten(
+                               first_index_to_second_index_to_row_to_column[first_index][second_index]))
 
         return first_index_to_second_index_to_row_to_column
 
@@ -180,7 +181,7 @@ def main():
         ts.append(4)
 
     if '5' in sys.argv:
-        ts = [5,]
+        ts = [5, ]
 
     if 0 == len(ts):
         ts = (2, 4, 5)
@@ -197,9 +198,6 @@ def main():
         image_types = ImageType
 
     np.random.seed(42)
-
-    width = 2200 // 5
-    height = 2200 // 5
 
     for image_type in image_types:
         print(image_type.value)
@@ -218,8 +216,11 @@ def main():
         images_train, images_validation, names_train, names_validation = train_test_split(images, names,
                                                                                           random_state=42)
         t_to_comparator = {
-            t: ComparatorCNN(t, width, height, image_type, mean=mean, std=std)
-                .load_weights()
+            t: ComparatorCNN(t,
+                             IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].width,
+                             IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].height,
+                             image_type, mean=mean, std=std)
+                .load_weights(IMAGE_TYPE_TO_T_TO_COMPARATOR_CNN_WEIGHT_FILE_ID_AND_FILE_PATH[image_type][t].model_path)
             for t in ts
         }
 
